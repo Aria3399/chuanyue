@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>穿越工艺百科</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        parchment: '#FAF8F5',
+                        paper: '#FFFFFF',
+                        ink: '#222222',
+                        muted: '#66625B',
+                        borderline: '#E5E0D8',
+                        bronze: '#7C4A21',
+                        bronzelight: '#F4EFEA'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        serif: ['"Noto Serif SC"', 'Georgia', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #FAF8F5;
+            color: #222222;
+            -webkit-font-smoothing: antialiased;
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FAF8F5;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #D5CFC6;
+            border-radius: 3px;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .card-item {
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .card-item:hover {
+            border-color: #7C4A21;
+            box-shadow: 0 4px 16px rgba(34, 34, 34, 0.04);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-stone-200 selection:text-ink">
+
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-30 bg-parchment/95 backdrop-blur-xs border-b border-borderline">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-ink">穿越工艺百科</h1>
+                </div>
+
+                <!-- 纯文字视图切换与原料库反查折叠开关 -->
+                <div class="flex items-center gap-3">
+                    <button 
+                        id="toggleInventoryBtn" 
+                        onclick="toggleInventoryPanel()" 
+                        class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium border border-borderline bg-paper text-ink hover:border-bronze transition-colors"
+                    >
+                        原料库反查（已选 <span id="selectedMatCount" class="font-semibold text-bronze">0</span> 项）
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容区 -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        <!-- 原料库反查折叠面板（默认折叠，点击展开） -->
+        <section id="inventoryPanel" class="hidden bg-paper rounded-xl border border-borderline p-5 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-borderline">
+                <div>
+                    <h2 class="font-serif text-base font-bold text-ink">基础原料库反查</h2>
+                    <p class="text-xs text-muted mt-0.5">勾选当前已获取的古代原料，下方自动匹配可完整制作或仅缺 1 种原料的工艺条目。</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="clearInventory()" class="px-3 py-1.5 text-xs text-muted hover:text-ink border border-borderline rounded-lg bg-parchment transition-colors">
+                        清空已选
+                    </button>
+                    <button onclick="toggleInventoryPanel()" class="px-3 py-1.5 text-xs text-ink border border-borderline rounded-lg bg-paper hover:bg-bronzelight transition-colors">
+                        收起面板
+                    </button>
+                </div>
+            </div>
+
+            <!-- 原料纯文字勾选网格 -->
+            <div id="materialsGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                <!-- 由 JS 动态渲染 -->
+            </div>
+
+            <!-- 匹配结果双栏 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-borderline">
+                <div class="bg-parchment rounded-lg border border-borderline p-4">
+                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-borderline">
+                        <span class="text-xs font-bold text-ink">材料齐全可制作</span>
+                        <span id="readyCount" class="text-xs text-bronze font-semibold">0 项</span>
+                    </div>
+                    <div id="readyList" class="space-y-1.5 max-h-52 overflow-y-auto text-xs">
+                        <!-- 由 JS 渲染 -->
+                    </div>
+                </div>
+
+                <div class="bg-parchment rounded-lg border border-borderline p-4">
+                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-borderline">
+                        <span class="text-xs font-bold text-ink">仅缺 1 种原料</span>
+                        <span id="almostCount" class="text-xs text-muted font-semibold">0 项</span>
+                    </div>
+                    <div id="almostList" class="space-y-1.5 max-h-52 overflow-y-auto text-xs">
+                        <!-- 由 JS 渲染 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 搜索框与纯文字分类栏 -->
+        <section class="bg-paper rounded-xl border border-borderline p-4 space-y-4">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    oninput="handleSearch()"
+                    placeholder="检索工艺名称、原料（如：硝石、石灰石、草木灰、生铁）或反应原理..." 
+                    class="w-full px-3.5 py-2.5 bg-parchment border border-borderline rounded-lg text-sm text-ink placeholder-muted focus:outline-none focus:border-bronze transition-colors"
+                >
+                <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted hover:text-ink px-2 py-1 rounded bg-paper border border-borderline">
+                    清除
+                </button>
+            </div>
+
+            <!-- 纯净文字分类 Tab 栏 -->
+            <nav class="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar border-b border-borderline pb-2" id="categoryTabs">
+                <!-- 由 JS 渲染 -->
+            </nav>
+        </section>
+
+        <!-- 检索状态栏 -->
+        <div class="flex items-center justify-between text-xs text-muted px-0.5">
+            <span>共收录 <strong id="resultCount" class="text-ink font-semibold">25</strong> 项工艺条目</span>
+            <span>点击条目查看精确配比与参数</span>
+        </div>
+
+        <!-- 工艺条目列表网格（极简无图标卡片） -->
+        <section id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- 由 JS 动态渲染 -->
+        </section>
+
+        <!-- 空结果提示 -->
+        <div id="emptyState" class="hidden bg-paper rounded-xl border border-borderline p-10 text-center space-y-2">
+            <p class="font-serif text-base font-bold text-ink">未检索到匹配条目</p>
+            <p class="text-xs text-muted">请尝试更换检索词或切换全部分类。</p>
+            <div class="pt-2">
+                <button onclick="resetFilters()" class="px-4 py-1.5 text-xs font-medium text-paper bg-bronze rounded-lg hover:opacity-90 transition-opacity">
+                    重置筛选
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 极简页脚 -->
+    <footer class="border-t border-borderline bg-parchment mt-12">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-muted flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>穿越工艺百科 · 古代实用技术参数索引</span>
+            <span>注：涉及高温熔炼、强酸强碱及含能化学反应，须严格遵守安全操作规程。</span>
+        </div>
+    </footer>
+
+    <!-- ==================== 词条详情模态框 ==================== -->
+    <div id="detailModal" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog">
+        <div onclick="closeModal()" class="fixed inset-0 bg-ink/40 backdrop-blur-2xs"></div>
+        
+        <div class="fixed inset-0 overflow-y-auto pointer-events-none flex items-center justify-center p-3 sm:p-6">
+            <div class="pointer-events-auto relative w-full max-w-3xl bg-paper rounded-xl border border-borderline shadow-xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+                
+                <!-- 弹窗顶部 -->
+                <div class="px-5 sm:px-7 py-4 bg-parchment border-b border-borderline flex items-start justify-between gap-4 shrink-0">
+                    <div>
+                        <div class="text-xs text-bronze font-medium mb-1" id="modalCategory">分类</div>
+                        <h2 id="modalTitle" class="font-serif text-lg sm:text-xl font-bold text-ink">词条标题</h2>
+                    </div>
+                    <button onclick="closeModal()" class="px-2.5 py-1 rounded-lg text-xs text-muted hover:text-ink border border-borderline bg-paper transition-colors shrink-0">
+                        关闭 [ESC]
+                    </button>
+                </div>
+
+                <!-- 弹窗主体滚动区（四大客观模块） -->
+                <div class="p-5 sm:p-7 overflow-y-auto space-y-6 flex-1 text-sm">
+                    
+                    <!-- 模块 1：核心化学/物理原理 -->
+                    <section class="space-y-2">
+                        <h3 class="font-serif text-base font-bold text-ink border-b border-borderline pb-1.5">一、核心化学 / 物理原理</h3>
+                        <p id="modalPrinciple" class="text-xs sm:text-sm leading-relaxed text-ink/90"></p>
+                    </section>
+
+                    <!-- 模块 2：标准原料与精确配比表（支持勾选同步至原料库） -->
+                    <section class="space-y-2.5">
+                        <div class="flex items-center justify-between border-b border-borderline pb-1.5">
+                            <h3 class="font-serif text-base font-bold text-ink">二、标准原料与精确配比</h3>
+                            <span class="text-xs text-muted">点击行可勾选/取消持有状态（已备 <span id="modalMatProgress" class="text-bronze font-semibold">0/0</span>）</span>
+                        </div>
+                        <div class="overflow-x-auto border border-borderline rounded-lg">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-parchment border-b border-borderline text-muted">
+                                        <th class="py-2 px-3 font-medium w-10">持有</th>
+                                        <th class="py-2 px-3 font-medium">原料名称</th>
+                                        <th class="py-2 px-3 font-medium">精确配比 / 规格参数</th>
+                                        <th class="py-2 px-3 font-medium">古代获取与预处理</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalRatioTableBody" class="divide-y divide-borderline">
+                                    <!-- 由 JS 动态渲染 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- 模块 3：分步操作工艺与关键火候/参数 -->
+                    <section class="space-y-2.5">
+                        <h3 class="font-serif text-base font-bold text-ink border-b border-borderline pb-1.5">三、分步操作工艺与关键火候 / 参数</h3>
+                        <div id="modalStepsList" class="space-y-2.5">
+                            <!-- 由 JS 动态渲染 -->
+                        </div>
+                        <div class="mt-3 p-3.5 rounded-lg bg-parchment border border-borderline text-xs leading-relaxed text-ink/90">
+                            <strong class="font-semibold text-bronze">安全边界与防失败规程：</strong>
+                            <span id="modalSafety"></span>
+                        </div>
+                    </section>
+
+                    <!-- 模块 4：传统与改良工艺参数对比 -->
+                    <section class="space-y-2.5">
+                        <h3 class="font-serif text-base font-bold text-ink border-b border-borderline pb-1.5">四、传统与改良工艺参数对比</h3>
+                        <div class="overflow-x-auto border border-borderline rounded-lg">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-parchment border-b border-borderline text-muted">
+                                        <th class="py-2 px-3 font-medium">对比维度</th>
+                                        <th class="py-2 px-3 font-medium">传统古代工艺</th>
+                                        <th class="py-2 px-3 font-medium text-bronze">改良实用工艺</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalCompareTableBody" class="divide-y divide-borderline">
+                                    <!-- 由 JS 动态渲染 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- 弹窗底部 -->
+                <div class="px-5 sm:px-7 py-3 bg-parchment border-t border-borderline flex items-center justify-end shrink-0">
+                    <button onclick="closeModal()" class="px-4 py-1.5 bg-ink text-paper text-xs font-medium rounded-lg hover:opacity-90 transition-opacity">
+                        完成查阅
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 25项完整客观工艺数据库 ====================
+        const ENCYCLOPEDIA_DATA = [
+            // ---------------- 1. 民生农耕 (6项) ----------------
+            {
+                id: 'soap',
+                title: '草木灰皂化制皂',
+                category: '民生农耕',
+                ratioSummary: '草木灰 4 : 生石灰 1（浸出液10-12°Bé）与油脂按 1 : 2 质量比反应，加粗盐 15% 盐析',
+                principle: '植物草木灰富含碳酸钾（K₂CO₃），与生石灰（CaO）水化生成的氢氧化钙发生苛化反应：K₂CO₃ + Ca(OH)₂ → 2KOH + CaCO₃↓，得到强碱氢氧化钾溶液。强碱与动物油脂（高级脂肪酸甘油酯）在 80~95℃ 下发生皂化水解反应，生成高级脂肪酸钾（软皂基）与甘油。随后加入高浓度氯化钠溶液进行盐析，钠离子置换部分钾离子并降低脂肪酸盐溶解度，使其上浮凝结为硬质肥皂块，与甘油及多余游离碱彻底分离。',
+                materials: [
+                    { name: '草木灰', ratio: '占干灰石混合料 80%（4份）', source: '阔叶木或稻草充分燃烧后的灰白色细灰，过筛去炭渣' },
+                    { name: '生石灰', ratio: '占干灰石混合料 20%（1份）', source: '石灰石或贝壳在 900℃ 窑中煅烧所得氧化钙块' },
+                    { name: '猪油/植物油', ratio: '碱液与油脂质量比 1 : 2', source: '熬炼脱水的猪板油、牛脂或羊脂（饱和脂肪酸高易凝固）' },
+                    { name: '粗盐', ratio: '占油脂总质量的 15%', source: '饱和盐水或干燥粗盐颗粒，用于盐析分离皂基与母液' }
+                ],
+                steps: [
+                    { step: '1. 苛化浸出碱液', detail: '草木灰与生石灰按 4:1 混合装入底部铺稻草与细沙的木桶，倒入沸水反复淋滤 3 次，收集澄清碱液至浓度达到波美度 10~12°Bé（新鲜鸡蛋放入可浮起露出铜钱大小）。' },
+                    { step: '2. 加热皂化反应', detail: '将猪油放入铁锅加热至 70℃ 融化，分批缓慢倒入碱液，保持 85~95℃ 微沸状态朝同一方向持续搅拌 60~90 分钟，直至油水不再分层，挑起呈半透明粘稠糊状。' },
+                    { step: '3. 盐析提纯分离', detail: '向皂糊中撒入占油脂重量 15% 的粗盐颗粒，继续加热搅拌 15 分钟。白色絮状皂基浮于液面，底层析出含多余强碱与甘油的褐色废液，静置冷却后捞出上层皂基。' },
+                    { step: '4. 漂洗压模与熟化', detail: '用少量清水快速冲洗皂基表面残碱，压入垫麻布的木模中榨干水分，置于阴凉通风处风干熟化 7~14 天（使微量游离碱吸收空气中二氧化碳转化为碳酸盐）后切块。' }
+                ],
+                safety: '未经过盐析和风干熟化的肥皂含有游离氢氧化钾/氢氧化钠，直接接触皮肤会引起强碱性化学灼伤与溃烂；熬煮强碱液严禁使用铝制或铜制容器，须用铁锅或陶釜。',
+                comparison: [
+                    { metric: '原料成本与周期', trad: '天然皂角/猪胰子，受季节产地限制，产量极低', improved: '草木灰与边角动物脂全年可制，单锅周期 2 天（含风干 10 天）' },
+                    { metric: '去污与除菌能力', trad: '仅能去除表面浮尘，对油脂与病原体清除率低', improved: '亲油基与亲水基双亲结构，有效乳化油脂并破坏细菌包膜' },
+                    { metric: '成品形态与保存', trad: '胰子易腐败酸败，难以长途储存', improved: '盐析硬皂含水率低于 15%，干燥环境下可保存 1 年以上' }
+                ]
+            },
+            {
+                id: 'refined-salt',
+                title: '粗盐重结晶提纯',
+                category: '民生农耕',
+                ratioSummary: '粗盐 : 清水 = 1 : 3 溶解，加 1% 草木灰澄清水除镁钙，0.5% 木炭粉脱色，保留 15% 母液捞盐',
+                principle: '古代粗盐含有氯化镁（MgCl₂，味苦且过量有毒）、氯化钙（CaCl₂，吸湿潮解）、硫酸钙及泥沙。先加入少量草木灰浸出液（含碳酸钾），使 Ca²⁺ 与 Mg²⁺ 生成难溶的碳酸钙与碱式碳酸镁沉淀除去；利用活性炭的多孔结构吸附有机色素与异味；最后依据氯化钠溶解度随温度变化极小（20℃ 约 36g/100g 水，100℃ 约 39.2g/100g 水）而氯化镁在热水中溶解度极高的特性，通过蒸发并在蒸干前趁热捞出氯化钠晶体，将残余苦卤留在母液中分离。',
+                materials: [
+                    { name: '粗盐', ratio: '基准原料 100 份（质量比）', source: '古代井盐、池盐或海盐产出的发黄、潮湿苦涩原盐' },
+                    { name: '草木灰', ratio: '浸出澄清液约 1~2 份', source: '草木灰加水浸泡静置后的上层清液，提供碳酸根沉淀杂质' },
+                    { name: '木炭', ratio: '研细炭粉约 0.5 份', source: '硬木炭研成细粉，用于物理吸附有机有色杂质' }
+                ],
+                steps: [
+                    { step: '1. 化盐与化学沉淀', detail: '粗盐与清水按 1:3 质量比倒入锅中加热至 60℃ 充分溶解成近饱和盐水，缓慢滴入澄清草木灰水搅拌，静置 30 分钟使钙镁离子生成白色絮状沉淀。' },
+                    { step: '2. 炭粉吸附与精密过滤', detail: '向盐水中加入 0.5% 细木炭粉搅拌 10 分钟，随后通过铺有 3 层细麻布、5 厘米洗净细河沙与木炭粒的过滤桶，收集清澈透明的滤液。' },
+                    { step: '3. 蒸发结晶与趁热捞盐', detail: '滤液入洁净铁锅文火加热蒸发水分，氯化钠晶体不断析出沉底。当锅内水分蒸发至剩余约 15%~20% 母液时立即停止加热，用漏勺将雪白盐晶捞出（严禁烧干）。' },
+                    { step: '4. 沥干焙干研细', detail: '捞出的盐晶置于铺麻布的竹筛上沥去残余母液，放入洁净陶盆中微火烘干水分，碾细即得干燥洁白精盐。' }
+                ],
+                safety: '古代粗盐致死原因主要为氯化镁及部分井盐中的可溶性钡盐中毒。操作时绝不可将盐水完全蒸干，必须丢弃底部 15% 残余苦卤母液，以防有毒可溶性杂质重新混入食盐。',
+                comparison: [
+                    { metric: '氯化钠纯度', trad: '约 75%~85%，含大量泥沙与钙镁氯化物', improved: '重结晶后纯度可达 98.5% 以上' },
+                    { metric: '感官与物理性状', trad: '灰黄潮湿结块，入口苦涩刺喉', improved: '纯白干燥细晶，咸味纯正，无苦涩后味' },
+                    { metric: '食用安全性', trad: '长期食用易引发镁中毒或慢性胃肠损伤', improved: '有效去除苦卤与泥沙，符合安全食用标准' }
+                ]
+            },
+            {
+                id: 'tofu',
+                title: '石膏/卤水点豆腐',
+                category: '民生农耕',
+                ratioSummary: '干黄豆 : 清水 = 1 : 8 磨浆，熟石膏粉占干豆重 2.5%~3%（或盐卤占干豆重 1.5%~2%）',
+                principle: '大豆经浸泡磨浆煮沸后，大豆球蛋白分子链在热力作用下伸展并带有负电荷，彼此静电排斥形成稳定的液态溶胶。点卤时加入熟石膏（CaSO₄·2H₂O 煅烧后的半水硫酸钙）或盐卤（含 MgCl₂），解离出的二价阳离子（Ca²⁺、Mg²⁺）中和蛋白质表面负电荷并在分子间架起离子桥，使其交联凝聚成三维网状凝胶结构，将水分包裹其中形成固态豆腐。',
+                materials: [
+                    { name: '大豆', ratio: '干黄豆 100 份（基准）', source: '颗粒饱满的当年干黄豆，蛋白质含量约 36%~40%' },
+                    { name: '生石灰/石膏', ratio: '熟石膏粉 2.5~3 份（或盐卤 1.8 份）', source: '天然石膏块火煅研粉，或粗盐自然滴沥出的澄清盐卤' }
+                ],
+                steps: [
+                    { step: '1. 泡豆磨浆与滤渣', detail: '干黄豆冷水浸泡 6~8 小时（夏季 5 小时，冬季 10 小时）至豆瓣无硬芯，按干豆与清水 1:8 的总水量用石磨磨成细腻生豆浆，通过细麻布袋挤滤分离豆渣。' },
+                    { step: '2. 煮浆破除抗营养因子', detail: '生豆浆入锅大火煮沸。80℃ 时大豆皂苷会产生大量假沸泡沫，需撇去泡沫并继续保持 100℃ 真沸 5~8 分钟，彻底灭活胰蛋白酶抑制剂与血球凝集素。' },
+                    { step: '3. 控温 82℃ 点卤凝固', detail: '熟石膏粉用少量温水调成悬浮液（或将盐卤加水稀释 5 倍）。待煮沸豆浆降温至 80~85℃ 时，沿锅边缓慢画圈倒入凝固剂并轻推搅动，出现大片雪花状絮凝、周围析出淡黄清汤时立即停卤。' },
+                    { step: '4. 蹲脑与压制成型', detail: '加盖静置保温 15 分钟使凝胶结构稳固，舀入铺有湿纱布的透水木框内，盖上木板压重物（压重约为豆腐重量的 1.5 倍）挤出黄浆水 60 分钟即成。' }
+                ],
+                safety: '未彻底煮沸的生豆浆含有皂苷和胰蛋白酶抑制剂，饮用后会引发剧烈恶心、呕吐与腹痛；点卤剂不可过量添加，过量氯化镁不仅导致豆腐苦硬，且对人体电解质平衡有害。',
+                comparison: [
+                    { metric: '蛋白质人体吸收率', trad: '整粒水煮黄豆吸收率仅约 60%~65%', improved: '破坏细胞壁与抑制剂后，豆腐蛋白吸收率提升至 92% 以上' },
+                    { metric: '出品率（以 1 斤干豆计）', trad: '直接煮食无加工增值', improved: '可产出老豆腐约 2.2~2.5 斤，嫩豆腐约 3.0 斤，另副产豆渣 1.2 斤' },
+                    { metric: '保存与风味改造', trad: '豆腥味重，易引起肠道胀气', improved: '可进一步熏制、晒干（豆腐干）或发酵制腐乳长期储存' }
+                ]
+            },
+            {
+                id: 'quyuan-plow',
+                title: '曲辕犁与耧车构造',
+                category: '民生农耕',
+                ratioSummary: '曲辕总长 2.2 米，犁铧入土角 22°~25°，三脚耧车行距 20~25 厘米，单人单牛操作',
+                principle: '传统直辕犁牵引点高、力臂长，需二牛三人协同且转弯半径极大。曲辕犁将直长辕改为向上弯曲的短木，降低了牵引作用线高度，使牛拉力合力线更接近犁铧土壤阻力中心，大幅减小力矩损耗；配合可上下调节耕深的“犁评”与呈螺旋扭曲曲面的“犁壁”，使切开的土垡顺畅翻转扣压。三脚耧车则利用漏斗重力自流与行走振动原理，实现开沟、定量下种、覆土一次完成。',
+                materials: [
+                    { name: '木材/竹子', ratio: '硬杂木主框架 + 3 根中空竹管', source: '天然弯曲硬木（榆木/槐木）制曲辕，坚硬耐磨木制犁箭与耧斗' },
+                    { name: '生铁', ratio: 'V型犁铧 1 件 + 曲面犁壁 1 件', source: '生铁铸造锋利 V 型破土犁铧及弧形翻土犁壁' }
+                ],
+                steps: [
+                    { step: '1. 铸造犁铧与螺旋曲面犁壁', detail: '用生铁铸造等腰三角形犁铧（宽 20cm，刃角 25°），在其上方装配一块向右上方呈扭曲弧面的铸铁犁壁，保证泥土切开后顺势翻转盖草。' },
+                    { step: '2. 装配短曲辕与可调犁评', detail: '截取长约 2.2 米带自然弧度的硬木做犁辕，前端设可 360° 旋转的“犁盘”挂牛轭；在犁辕与犁箭交接处设木楔“犁评”，通过插拔木楔控制耕深在 12~22 厘米之间调节。' },
+                    { step: '3. 组装三脚耧车播种箱', detail: '用木板制上宽下窄的梯形耧斗，底部开 3 个直径 2cm 的出种孔（内设可调木舌控制下种量），下方连接 3 根中空竹管通入三只小型铁制开沟铧后方。' },
+                    { step: '4. 挂接覆土镇压横木', detail: '在耧车后方拖挂一根圆木或石磙，行走下种的同时自动推平沟两侧浮土并镇压保墒。' }
+                ],
+                safety: '生铁铸造的犁铧与犁壁脆性较大，开垦荒地遇大石块或粗树根硬撞易崩裂，深耕前须先人工清理大石；播种前种子需晒干过筛，防止草屑堵塞竹管造成缺苗断垄。',
+                comparison: [
+                    { metric: '所需人畜力配置', trad: '二牛抬杠直辕犁：需 2 头牛 + 3 名壮劳力', improved: '曲辕犁：仅需 1 头牛 + 1 名农夫即可操作' },
+                    { metric: '日均耕作面积', trad: '约 2~3 亩/日，且田角地头无法耕作需人工补挖', improved: '约 5~7 亩/日，转弯半径缩小 60%，适合丘陵与小块农田' },
+                    { metric: '播种均匀度与耗种量', trad: '手工撒播深浅不一，出苗率低，耗种量大', improved: '三脚耧车条播深浅一致，节约种子 30%，出苗率提升 25%' }
+                ]
+            },
+            {
+                id: 'compost-fertilizer',
+                title: '堆肥沤肥与草木灰钾肥',
+                category: '民生农耕',
+                ratioSummary: '碳氮原料比 25:1 ~ 30:1，含水率 55%~60%，高温发酵 55~65℃ 维持 10 天，草木灰单独施用',
+                principle: '好氧微生物分解有机质的最适碳氮比（C/N）为 25~30:1。将富碳的农作物秸秆杂草与富氮的人畜粪尿按比例混合并控制含水率在 55% 左右，好氧嗜热菌群迅速繁殖释放生物热，使堆体中心温度升至 55~65℃ 并维持 7~10 天，可彻底杀灭蛔虫卵、病原菌及杂草种子，同时将大分子有机物腐殖化为植物可直接吸收的腐殖酸与铵态氮。草木灰则提供水溶性碳酸钾（含钾 5%~10%）。',
+                materials: [
+                    { name: '草木灰', ratio: '含有效钾 5%~10%（单独施用）', source: '灶膛燃烧秸秆薪柴收集的干燥灰烬，严禁雨淋防钾素流失' },
+                    { name: '黏土', ratio: '外层密封覆盖厚 5~8 厘米', source: '普通田土或黏土，用于堆肥外层保温锁氮' },
+                    { name: '大豆', ratio: '轮作固氮绿肥（每亩用种 8~10 斤）', source: '大豆或苜蓿种子，利用根瘤菌将空气氮气转化为土壤铵态氮' }
+                ],
+                steps: [
+                    { step: '1. 原料切碎与碳氮配比堆叠', detail: '将干燥秸秆杂草铡成 5~10 厘米短段，按“秸秆杂草 3 份 : 畜禽粪便 1 份”分层铺设，每铺 20 厘米泼洒粪水调节湿度至“手握成团、指缝微湿不滴水”（含水率约 55%）。' },
+                    { step: '2. 设通气道与黏土封堆', detail: '堆高至 1.5 米左右，堆中垂直插入几根带孔竹竿保持内部通气（好氧发酵），表面糊抹 5 厘米厚细黏土保温防雨。' },
+                    { step: '3. 高温杀菌与翻堆熟化', detail: '3~5 天后堆内温度升至 55~65℃，保持 10 天杀死虫卵草籽；第 15 天拔除竹竿进行一次彻底翻堆补充氧气，再闷堆 15 天至物料呈黑褐色、无恶臭且疏松即可作底肥。' },
+                    { step: '4. 豆禾轮作与草木灰追肥', detail: '实行“粟/麦—大豆”轮作利用生物固氮恢复地力；草木灰单独作为种肥或追肥撒施，严禁与腐熟粪肥混合堆放。' }
+                ],
+                safety: '草木灰呈强碱性，若与人畜粪尿或腐熟厩肥混合，会发生化学反应生成氨气挥发，导致肥效最宝贵的氮元素大量损失；未经过 55℃ 以上高温腐熟的生粪直接下地会烧伤作物根系并传播寄生虫病。',
+                comparison: [
+                    { metric: '土地利用率', trad: '休闲撂荒制（耕种 2 年休耕 1 年恢复地力）', improved: '连年轮作无休耕，土地年均产出率提升 33%~50%' },
+                    { metric: '寄生虫与杂草控制', trad: '生粪直接泼洒，田间虫卵与杂草泛滥', improved: '60℃ 高温堆肥杀灭 95% 以上虫卵与杂草种子' },
+                    { metric: '肥料养分保存率', trad: '露天堆放任其日晒雨淋，氮钾流失超 60%', improved: '黏土密封好氧发酵，养分保存率达 85% 以上' }
+                ]
+            },
+            {
+                id: 'waterwheel',
+                title: '水力筒车与龙骨水车',
+                category: '民生农耕',
+                ratioSummary: '筒车轮径 6~10 米，竹筒前倾角 35°~40°，水深浸叶 30~50 厘米，提水扬程 5~8 米',
+                principle: '筒车利用流动河水的动量冲击浸入水中的木制刮水板，将水的动能转化为轮轴旋转力矩。轮周外缘斜向绑扎一圈一端开口的毛竹筒：竹筒入水时筒口朝上灌满河水；随车轮转至最高点时，由于竹筒安装时带有 35°~40° 的前倾角，当筒口低于筒底水平面时，河水在重力作用下自动倾泻入高处的木制接水槽，顺水渠自流灌溉高地农田。',
+                materials: [
+                    { name: '木材/竹子', ratio: '硬木主轴轮辐 + 毛竹筒 36~48 根', source: '耐水腐松木或杉木制主轴与双轮辐，粗大带节毛竹制汲水筒' },
+                    { name: '生铁', ratio: '轴瓦铁箍 2 套', source: '包裹木轴两端颈部，配合动物油脂润滑减少磨损' },
+                    { name: '黏土', ratio: '导流堰填料', source: '与卵石夯筑斜向拦水堰，束窄河道提高水流冲力' }
+                ],
+                steps: [
+                    { step: '1. 修筑束水导流堰', detail: '在河床较窄处用卵石和黏土修筑斜向导流堰，留出宽约 1.5 米的水道，集中水流提高流速以冲击筒车叶片。' },
+                    { step: '2. 架设主轴与双轮辐框架', detail: '在河岸打入两排坚固木桩架设硬木横轴（轴颈涂猪油润滑），用杉木杆以双轮辐对称交叉绑扎成直径 6~10 米的垂直车轮。' },
+                    { step: '3. 斜角绑扎竹筒与刮水板', detail: '沿轮周外缘每隔 30~40 厘米斜向绑扎一根长约 1 米的粗毛竹筒（筒口朝向旋转方向前倾 35°~40°），竹筒之间安装阔叶木刮水板。' },
+                    { step: '4. 架设高空引水槽', detail: '在车轮顶部略偏下方的内侧架设宽木槽，确保竹筒越过顶点开始向下倾斜时，筒内河水准确倒入槽中引向田间水渠。' }
+                ],
+                safety: '汛期山洪暴发前必须提前将筒车轮辐拆除或拉上高岸，避免洪水夹杂漂浮树干摧毁车轮；木轴轴承需每隔 5 日加注动物油脂润滑防磨断。',
+                comparison: [
+                    { metric: '动力消耗与人工', trad: '桔槔或踏车提水：需 2~4 名壮丁昼夜踩踏', improved: '完全利用河水动能，无需人畜力，24 小时自动运转' },
+                    { metric: '提水扬程高度', trad: '人力翻车单级扬程通常不超过 1.5~2 米', improved: '单级筒车可直接将河水提升 5~8 米高坡农田' },
+                    { metric: '单日灌溉能力', trad: '人力提水日灌农田约 3~5 亩', improved: '直径 8 米筒车昼夜可灌溉农田 40~60 亩' }
+                ]
+            },
+
+            // ---------------- 2. 军事军备 (5项) ----------------
+            {
+                id: 'black-powder',
+                title: '传统黑火药配比与粒化',
+                category: '军事军备',
+                ratioSummary: '硝酸钾（硝石）75% : 木炭 15% : 硫磺 10%（质量比），湿法碾压造粒（粒径 1~3mm）',
+                principle: '黑火药是以硝酸钾（KNO₃）为氧化剂、木炭（C）为可燃物、硫磺（S）为降燃点助燃剂的固相机械混合含能体系。硫磺燃点仅 232℃，受热先熔化包裹碳粒并降低整体着火点；硝酸钾受热分解释放氧气，与木炭发生剧烈氧化还原反应：2KNO₃ + S + 3C → K₂S + N₂↑ + 3CO₂↑。反应瞬间释放大量热能并使固体转化为高温气体（体积膨胀约 1000 倍）。通过湿润压饼后造粒（粒化），利用颗粒间空隙使火焰在药床中快速稳定传播。',
+                materials: [
+                    { name: '硝土', ratio: '提纯硝酸钾占总质量 75%', source: '老屋墙根与厕所土壁刮取硝土，加水淋滤并加草木灰除杂重结晶提纯' },
+                    { name: '木炭', ratio: '柳木/杉木炭占总质量 15%', source: '选用质地疏松、灰分低的柳木或杉木烧炭，单独研成细粉' },
+                    { name: '硫磺', ratio: '提纯硫磺粉占总质量 10%', source: '天然硫磺矿加热升华冷凝提纯为明黄色纯硫磺，单独研粉' }
+                ],
+                steps: [
+                    { step: '1. 提纯土硝（制备硝酸钾）', detail: '将富含硝酸钙的硝土装桶加水淋滤，向滤液中加入适量草木灰水沉淀钙镁离子（转化为溶解度随温度变化极剧烈的硝酸钾），过滤后蒸发浓缩并在冷却至 10℃ 时析出针状纯硝石晶体。' },
+                    { step: '2. 分别粉碎与过细筛', detail: '将纯硝石、柳木炭、硫磺分别在不同石臼中研磨成极细粉末（严禁三者混合后干磨），分别通过 100 目细绢筛。' },
+                    { step: '3. 湿法混药与压饼', detail: '按“硝石 75% : 木炭 15% : 硫磺 10%”精确称重，加入占药粉总重 10%~12% 的清水充分拌湿成泥团，用木碾或木榨机压制成密度均匀的药饼。' },
+                    { step: '4. 碎粒过筛与阴干', detail: '将半干药饼用木槌轻敲破碎，通过竹筛筛选出 1~3 毫米的均匀颗粒，摊在竹席上置于阴凉通风处自然阴干（严禁日晒或火烤）。' }
+                ],
+                safety: '【极度高危安全规范】1. 严禁将三种原料在干燥状态下混合研磨或铁器撞击，摩擦火花与静电可瞬间引发爆燃；2. 混合与造粒全程必须保持 10% 以上湿润状态；3. 干燥成品必须远离一切明火、高温热源与化纤/丝绸等易产生静电的织物，严禁在室内大量囤积。',
+                comparison: [
+                    { metric: '唐宋早期火药配比', trad: '硝石仅占 50%~60%，硫磺过高，仅能燃烧纵火（燃烧型）', improved: '75 : 15 : 10 接近零氧平衡最佳配比，气体生成量与爆发力最大化' },
+                    { metric: '物理形态与稳定性', trad: '散粉状，长途运输易因密度差异分层失效', improved: '湿法压饼粒化，密度均匀不分层，火焰传播速度稳定提高数倍' },
+                    { metric: '受潮性能', trad: '土硝含氯化钠杂质极易吸潮结块失效', improved: '重结晶纯硝酸钾几乎不吸潮，密封防潮可长期储存' }
+                ]
+            },
+            {
+                id: 'cavalry-gear',
+                title: '骑兵三件套（高桥马鞍、双边马镫、蹄铁）',
+                category: '军事军备',
+                ratioSummary: '前鞍桥高 18cm、后鞍桥高 15cm；U 型熟铁蹄铁厚 6~8mm，每蹄斜钉 6~8 枚扁头熟铁钉',
+                principle: '无马镫骑乘时骑手仅靠双腿夹持马腹保持平衡，无法站立发力且极易被撞落。高桥马鞍（前鞍桥防前冲、后鞍桥防后仰）与双边马镫共同构成稳定的力学三点支撑体系，使骑手重心下移并可站立马背借战马冲势挥舞长兵器劈砍。马蹄铁（U 型熟铁掌）钉在没有神经和血管分布的马蹄外缘角质壁上，防止长途奔袭中角质层过度磨损开裂引发蹄叶炎。',
+                materials: [
+                    { name: '熟铁', ratio: '马镫 2 只（重约 0.5kg/只）+ 蹄铁 4 只', source: '韧性良好的低碳熟铁，锻打成三角形马镫及带 6~8 个钉孔的 U 型蹄铁' },
+                    { name: '木材/竹子', ratio: '高桥木鞍架 1 套', source: '坚韧榆木或桑木削制贴合马背弧度的鞍板与前后高桥' },
+                    { name: '牛角/牛筋', ratio: '熟牛皮衬垫、肚带与承重镫带', source: '厚熟牛皮裁剪制成承重镫带与防磨衬垫' }
+                ],
+                steps: [
+                    { step: '1. 制作前后高桥木鞍架', detail: '用硬木削制两块贴合战马脊柱两侧肌肉的鞍板，前端安装高 18 厘米、微向前倾的前鞍桥，后端安装高 15 厘米的后鞍桥，底部衬厚毛毡与熟牛皮防磨伤马背。' },
+                    { step: '2. 锻造双边熟铁马镫', detail: '用熟铁锻打底部宽 10 厘米并刻防滑纹的三角形或半圆形马镫，顶部设穿带方孔，用双层厚牛皮带对称悬挂于鞍架两侧，长度以骑手脚踩镫后膝盖微曲为宜。' },
+                    { step: '3. 修平马蹄底部角质层', detail: '固定战马马蹄，用铁锉将马蹄底部外缘过长的角质壁修整平整，避开中央柔软敏感的蹄叉部位。' },
+                    { step: '4. 装配 U 型蹄铁与斜钉固定', detail: '按马蹄轮廓热锻或冷锻调整 U 型熟铁蹄铁贴合蹄壁外缘，用扁头熟铁钉从蹄壁外缘呈 30° 角斜向外侧钉入角质层，钉尖穿出蹄壁外侧后立即弯折剪平锉光。' }
+                ],
+                safety: '钉马蹄铁时铁钉必须斜向外侧穿出无痛觉的厚角质壁；若垂直或向内钉偏刺入马蹄内部真皮层（肉蹄），会导致战马剧痛跛行并引发破伤风报废。',
+                comparison: [
+                    { metric: '骑手重心与发力方式', trad: '无镫骑乘：双腿夹马腹，无法起身挥砍，受撞击极易坠马', improved: '三点力学支撑：可站立骑射与双手持长兵器重甲冲锋' },
+                    { metric: '战马长途机动蹄损率', trad: '碎石路行军百里即出现马蹄磨损出血，大量战马跛行淘汰', improved: '熟铁蹄铁保护角质壁，战马可持续奔袭千里无蹄损' },
+                    { metric: '骑兵训练周期', trad: '需多年自幼骑射方能掌握马背平衡', improved: '新兵数周即可掌握稳定骑乘与编队冲锋' }
+                ]
+            },
+            {
+                id: 'composite-crossbow',
+                title: '复合反曲弓与望山弩机',
+                category: '军事军备',
+                ratioSummary: '弓臂结构：内层水牛角片（受压）+ 中层竹木芯 + 外层牛背筋 3 层（受拉），三棱铁镞重 15~25g',
+                principle: '单一木材弯曲弹性极限低，拉力过大易折断。复合反曲弓依据材料力学分工组合：弓腹（内侧受压面）粘贴抗压弹性模量极高的水牛角片，中间为竹木定型芯，弓背（外侧受拉面）铺设多层拉伸强度极佳的牛背筋，以鱼鳔胶粘合。未上弦时弓臂向反方向弯曲（反曲），拉满时储存的弹性势能为单体木弓的 2.5 倍以上。配合带刻度照准具“望山”的青铜/钢铁杠杆弩机与脚踏张弦钩，实现高精度远程破甲。',
+                materials: [
+                    { name: '牛角/牛筋', ratio: '水牛角片 2 片 + 捶打牛背筋丝 3 层', source: '水牛角锯片打磨成弓腹片；牛背大筋木槌捶打撕成细丝做弓背' },
+                    { name: '木材/竹子', ratio: '弹性毛竹芯 1 条 + 硬木弩臂 1 具', source: '老毛竹片制弓胎芯，坚硬柘木或榆木制弩臂' },
+                    { name: '熟铁', ratio: '弩机部件 + 三棱破甲箭镞', source: '锻造钩弦“牙”、杠杆“牛”、扳机“悬刀”及三棱锥形钢铁破甲箭头' }
+                ],
+                steps: [
+                    { step: '1. 熬制鱼鳔胶与处理牛筋', detail: '将鱼鳔或猪皮文火熬成高强度动物胶；干牛筋用木槌反复捶打撕成麻丝状并梳顺，浸入温热鱼鳔胶中浸透。' },
+                    { step: '2. 三层反曲胶合塑形', detail: '将竹木弓胎反向弯曲绑在定型模具上，内侧用鱼鳔胶粘合打磨光滑的水牛角片，外侧分层铺设浸胶牛筋丝（共铺 3 层，每层阴干后再铺下一层），麻绳紧扎阴干 30 天。' },
+                    { step: '3. 装配望山弩机与脚踏钩', detail: '在硬木弩臂槽内安装联动弩机，在钩弦“牙”的后方立起刻有分度线的“望山”（通过三点一线仰角调整实现不同距离精准瞄准），弩臂前端装脚踏铁环。' },
+                    { step: '4. 配制重型三棱破甲箭', detail: '选用笔直箭杆，尾端粘三片平衡箭羽，前端装配质量集中、截面呈等边三角形的钢铁破甲镞，增大对铁甲的局部压强。' }
+                ],
+                safety: '复合弓严禁不搭箭“空放”，空放时全部弹性势能无法传递给箭矢会瞬间反噬震断弓臂；动物胶受潮易开胶，雨季行军必须用涂有桐油的皮套密封保护弓弩。',
+                comparison: [
+                    { metric: '相同弓臂长度下的拉力与初速', trad: '单体木弓拉力上限约 60~80 斤，弓臂长且笨重', improved: '短小复合反曲弓拉力可达 120~150 斤，箭矢初速提升 50% 以上' },
+                    { metric: '有效杀伤与破甲射程', trad: '有效射程约 80~120 步，难以穿透熟铁札甲', improved: '神臂弩有效射程达 250~300 步，三棱镞可近距离击穿铁甲' },
+                    { metric: '瞄准精度', trad: '全凭射手经验估测抛物线', improved: '望山刻度照准具建立仰角与距离对应关系，大幅提高命中率' }
+                ]
+            },
+            {
+                id: 'military-rations',
+                title: '行军压缩炒面与明矾净水',
+                category: '军事军备',
+                ratioSummary: '炒面粉 100 份 : 熟牛油 15 份 : 精盐 2 份 : 炒黄豆粉 10 份；浑水加明矾 0.05%（每百斤水加 25g）',
+                principle: '生面粉含水量高且淀粉呈β晶态（难以直接消化），行军中极易发霉生虫。将面粉文火炒熟使淀粉糊化脱水，混入精盐（补充电解质）与熔化牛油（脂肪热量密度高达 9kcal/g，是碳水化合物的 2.25 倍）高压压制成块，水分活度极低，可常温保存数月且开袋即食。行军饮水利用明矾（十二水合硫酸铝钾）水解产生的氢氧化铝胶体吸附水中悬浮泥沙絮凝沉淀，再经木炭吸附异味与 100℃ 煮沸彻底灭活霍乱、伤寒等致病菌。',
+                materials: [
+                    { name: '粮食/酒曲', ratio: '小麦粉/小米粉 100 份（基准）', source: '磨细的小麦粉、大米粉或小米粉' },
+                    { name: '大豆', ratio: '炒熟碾碎黄豆粉 10 份', source: '补充必需氨基酸，提升干粮蛋白质营养密度' },
+                    { name: '油脂', ratio: '熬炼脱水牛油或猪油 15 份', source: '纯净动物油脂，提供高热量并隔绝空气防潮' },
+                    { name: '粗盐', ratio: '提纯精盐 2 份', source: '补充电解质防止行军中暑抽筋，同时抑制杂菌' },
+                    { name: '木炭', ratio: '净水竹筒滤芯填料', source: '碎硬木炭粒与洁净河沙，配合明矾净化野外河水' }
+                ],
+                steps: [
+                    { step: '1. 文火炒制熟化面粉与豆粉', detail: '将面粉与黄豆粉分别倒入大铁锅中用文火干炒，不断翻铲防止焦糊，炒至呈微黄色、散发浓郁熟麦香且水分完全蒸发（含水率降至 5% 以下）。' },
+                    { step: '2. 混油加盐高压成型', detail: '将熬化并脱水纯净的牛油与精盐倒入热炒面中充分搓揉均匀，填入方形木模中用木槌用力夯实压紧，脱模后阴凉晾干，用油纸紧密包裹（每块重约 250 克，可满足单兵半日热量）。' },
+                    { step: '3. 明矾絮凝与三层滤筒净水', detail: '浑浊河水倒入水囊或水桶，按每 50 公斤水加入 25 克研细明矾粉搅动 1 分钟，静置 20 分钟待泥沙絮凝沉底；上层清液再通过装有“麻布—细河沙—碎木炭—细河沙”的竹筒过滤器滤除异味。' },
+                    { step: '4. 煮沸灭菌饮用', detail: '过滤后的清水入行军铁釜煮沸 5 分钟彻底杀灭致病微生物，冷却后配食压缩干粮。' }
+                ],
+                safety: '行军中严禁士兵直接饮用未经煮沸的野外生水（极易感染血吸虫、霍乱弧菌与痢疾杆菌）；制作干粮所用油脂必须提前熬透去尽水分，否则存放数月后易发生油脂酸败哈喇。',
+                comparison: [
+                    { metric: '行军炊事与隐蔽性', trad: '埋锅造饭生火冒烟，每日行军需耗费 3~4 小时炊事且易暴露位置', improved: '开袋即食无需生火，行军每日可多推进 30~40 里且完全隐蔽' },
+                    { metric: '单兵负重与携行天数', trad: '携带生米及炊具，单兵仅能携带 5~7 日口粮', improved: '高能量密度脱水压缩块，单兵可轻松携带 15 日以上口粮' },
+                    { metric: '军旅非战斗疫病减员', trad: '饮用生水导致痢疾霍乱频发，长途远征非战斗减员常超 30%', improved: '絮凝过滤加煮沸灭菌，肠道传染病发生率降低 90% 以上' }
+                ]
+            },
+            {
+                id: 'military-signals',
+                title: '军用信号与密码通信（狼烟配比与密码盘）',
+                category: '军事军备',
+                ratioSummary: '昼间浓烟料：半湿艾蒿 70% + 干柴 20% + 硫磺 5% + 油脂 5%；双同心圆盘 36 格动态偏移加密',
+                principle: '昼间信号烟柱利用含水率约 40% 的艾蒿、湿芦苇配合少量硫磺与油脂发生不完全燃烧，产生大量悬浮碳微粒与水汽气溶胶，烟柱浓密且抗风不易散；夜间改用高热值松脂桐油明火炬。军情加密采用同心双圆盘多表替换密码原理：将常用军情词汇或部首编码刻于外盘，内盘刻替换符号，通信双方按每日约定的密钥偏移量旋转对齐内盘进行替换，在古代尚未出现频率分析破译法的条件下可完全防止敌军截获破译。',
+                materials: [
+                    { name: '木材/竹子', ratio: '硬木同心双圆盘 1 套 + 干柴 20%', source: '硬木削制大小同心双圆盘（外盘直径 20cm，内盘 15cm）' },
+                    { name: '硫磺', ratio: '发烟助燃剂 5%（微量）', source: '少量硫磺粉助燃半湿草料，产生醒目黄白色浓烟' },
+                    { name: '松烟/桐油', ratio: '夜间火炬燃料（松香 60% : 桐油 40%）', source: '松香与熟桐油熬融浸渍麻布，制成抗风夜间烽火炬' }
+                ],
+                steps: [
+                    { step: '1. 制作同心双圆盘加密器', detail: '用硬木制作一大一小两个同心圆盘，中心用木销轴连接使内盘可自由旋转。外盘边缘均分刻写 36 个常用军情词码（如数字、方位、兵种、粮草），内盘对应刻写打乱顺序的替换符号。' },
+                    { step: '2. 设定每日动态密钥表', detail: '发报与收报双方提前约定每日密钥口令（如“初一甲子”，即将内盘“甲”字对齐外盘“子”字），编写军情时逐词查找外盘对应的内盘符号抄录。' },
+                    { step: '3. 装填昼间抗风浓烟灶', detail: '烽火台灶膛底部铺 20% 干柴与 5% 硫磺粉作引火，上方压盖 70% 半湿艾蒿与芦苇并淋 5% 废油脂，点火后烟柱笔直冲天，数里之外清晰可辨。' },
+                    { step: '4. 制作夜间抗风松脂火炬', detail: '将松香与桐油按 6:4 熬融，将捆扎紧实的粗麻布团浸入热油中浸透晾干，夜间遇敌点燃悬于高杆，狂风大雨亦不易熄灭。' }
+                ],
+                safety: '密码盘与每日密钥表须由主将及机要参谋贴身保管；若前线哨所或信使失陷，全军必须立即启用备用密钥序列作废旧表。',
+                comparison: [
+                    { metric: '百里军情传递耗时', trad: '快马接力传递百里需 2~3 个时辰（4~6 小时）', improved: '烽火台烟火接力百里仅需半个时辰（1 小时内）' },
+                    { metric: '昼间烟柱抗风可见度', trad: '普通干柴燃烧烟色淡薄，大风一吹即散难以辨认', improved: '气溶胶浓烟烟柱粗壮凝实，抗风能力与可视距离提升 3 倍' },
+                    { metric: '军情保密安全性', trad: '竹简木牍明文书写，信使被截获则全盘计划泄露', improved: '动态双盘替换密文，无密钥状态下古代谋士无法破译' }
+                ]
+            },
+
+            // ---------------- 3. 基建冶炼 (5项) ----------------
+            {
+                id: 'blast-furnace',
+                title: '高炉鼓风与炒钢工艺',
+                category: '基建冶炼',
+                ratioSummary: '高炉装料质量比：木炭 10 : 焙烧铁矿石 8 : 石灰石 1；炉温 1350~1400℃；炒钢炉温 1250℃ 鼓风脱碳',
+                principle: '高炉内木炭不完全燃烧生成一氧化碳（CO）与高温热量，在 1350℃ 以上将铁矿石（Fe₂O₃/Fe₃O₄）还原为液态生铁（含碳 2%~4.3%），同时石灰石（CaCO₃）分解为氧化钙与矿石中的二氧化硅脉石结合生成低熔点硅酸钙炉渣浮出。生铁硬脆无法锻打，将其放入敞口反射炉中熔化为半流体并鼓风吹入氧气，使铁水中的过量碳氧化为 CO 逸出（炒钢脱碳），含碳量降至 0.05%~0.8% 即得高韧熟铁或中碳钢。',
+                materials: [
+                    { name: '铁矿石', ratio: '焙烧破碎矿石 8 份（质量比）', source: '赤铁矿（红褐色）或磁铁矿（能吸铁），先焙烧敲碎至核桃大小' },
+                    { name: '木炭', ratio: '硬木炭 10 份（燃料与还原剂）', source: '致密硬木烧制的木炭，块度 3~6 厘米，提供高温与还原气体' },
+                    { name: '石灰石', ratio: '造渣助熔剂 1 份', source: '青灰石碎块，与矿石脉石结合降低炉渣熔点使其顺利排出' },
+                    { name: '黏土', ratio: '耐火炉衬筑造材料', source: '高岭土与细石英砂混合捣筑高炉内衬，耐受 1500℃ 高温' }
+                ],
+                steps: [
+                    { step: '1. 筑建竖式高炉与装料', detail: '用耐火砖与黏土筑成高 2.5~3 米的竖式高炉，底部设出铁口与高出 15 厘米的出渣口，侧面设耐火风口。先铺木炭点火预热炉膛，随后按“木炭 10 : 铁矿石 8 : 石灰石 1”分层装料。' },
+                    { step: '2. 连续鼓风升温还原', detail: '启动水排双动风箱连续向炉内鼓入高压空气，炉内高温区升至 1350~1400℃，铁矿石逐层还原熔化为铁水滴入炉缸。' },
+                    { step: '3. 放渣与铸造生铁锭', detail: '每隔 2 小时先打开上层出渣口放出玻璃状炉渣，再打开底部出铁口将白炽铁水引入彻底烘干的沙模中铸成生铁锭。' },
+                    { step: '4. 炒钢氧化脱碳制熟铁/钢', detail: '将生铁块放入敞口炒钢炉中加热至 1250℃ 半熔融状态，鼓风并用长铁棍不断翻炒，使空气中的氧气将生铁中的碳氧化烧掉，待铁团变粘稠成海绵状（熟铁/钢）时夹出反复锻打排渣。' }
+                ],
+                safety: '高炉冶炼排放的炉气含有高浓度剧毒一氧化碳（CO），必须建在室外开阔通风处，严禁人员在炉顶下风向停留；出铁水前所有沙模与工具必须彻底烘烤干燥，铁水遇微量水分会瞬间引发致命蒸汽爆炸。',
+                comparison: [
+                    { metric: '单炉日产生铁量', trad: '古代小型块炼铁炉单日仅产海绵铁 10~20 斤', improved: '鼓风高炉连续冶炼单日可产液态生铁 500~1000 斤' },
+                    { metric: '铁矿石金属回收率', trad: '块炼铁炉渣含铁高达 40% 以上，资源浪费严重', improved: '加石灰石造渣且炉温达 1400℃，铁回收率提升至 85% 以上' },
+                    { metric: '生铁转化熟铁效率', trad: '固体退火脱碳需连续烘烤数日', improved: '液态半熔融炒钢法仅需 1~2 小时即可批量脱碳获得优质熟铁' }
+                ]
+            },
+            {
+                id: 'co-fusion-steel',
+                title: '灌钢法（生熟铁合炼）',
+                category: '基建冶炼',
+                ratioSummary: '熟铁薄片 75%（3份）: 高碳生铁块 25%（1份），共熔温度 1250~1300℃ 保温 30 分钟，折叠锻打 10~15 次',
+                principle: '生铁含碳 2%~4.3%（熔点约 1150℃，硬脆），熟铁含碳 <0.05%（熔点约 1538℃，软韧），优质兵器与工具钢含碳需控制在 0.5%~0.9%。灌钢法利用液固相扩散渗碳原理：在 1250~1300℃ 下生铁熔化为液态，浇灌在白炽状态的熟铁薄片上，铁水中的碳原子在浓度梯度驱动下迅速向熟铁内部扩散，生铁含碳下降而熟铁含碳上升，两者均匀融合为中碳钢，再经反复折叠锻打挤出硅酸盐夹渣并局部淬火获得高硬马氏体刃口。',
+                materials: [
+                    { name: '熟铁', ratio: '低碳铁基体 75%（3份）', source: '炒钢脱碳后锻打成厚 3~5 毫米的纯净熟铁薄片' },
+                    { name: '生铁', ratio: '高碳渗碳剂 25%（1份）', source: '高炉冶炼出的含碳约 3.2% 的脆性生铁，砸成小块' },
+                    { name: '黏土', ratio: '耐火坩埚与覆泥淬火涂料', source: '高岭土加细石英砂制耐火炉衬及刀背保温泥层' },
+                    { name: '木炭', ratio: '高温无硫燃料', source: '硬木炭配合鼓风设备维持 1300℃ 炉温' }
+                ],
+                steps: [
+                    { step: '1. 生熟铁交错捆扎装炉', detail: '将熟铁锻打成薄片，与砸碎的生铁块按 3:1 质量比交错叠放捆紧，放入耐火炉膛中，表面覆盖一层草木灰与碎玻璃渣作保护熔剂防止氧化。' },
+                    { step: '2. 1280℃ 高温共熔渗碳', detail: '鼓风猛火加热至 1250~1300℃，生铁率先熔化为铁水渗入烧至白炽的熟铁片缝隙中，保持该温度 30~40 分钟使碳元素充分扩散均匀。' },
+                    { step: '3. 折叠锻打排渣细化晶粒', detail: '用铁钳夹出半熔融钢团，趁热锤击压实，对折后再加热锻打 10~15 次，将内部夹杂的硅酸盐炉渣彻底挤出，使内部含碳量完全均质化。' },
+                    { step: '4. 覆泥局部淬火与低温回火', detail: '打制成刀剑雏形后，刀背涂抹 5 毫米厚黏土保温、刀刃裸露，加热至 780℃（樱桃红色）后垂直插入温水或油脂中急速冷却淬火，随后在 200℃ 炭火上烤至淡稻草色进行低温回火消除脆性。' }
+                ],
+                safety: '淬火瞬间白炽钢铁接触液体会产生剧烈沸腾蒸汽与热油飞溅，操作者须佩戴厚皮围裙与防护面罩；高碳钢淬火后若不进行低温回火，砍击硬物时极易脆断崩口。',
+                comparison: [
+                    { metric: '冶炼周期与成本', trad: '百炼钢需将块炼铁反复加热锻打上百次，耗时数月', improved: '灌钢法一次共熔加十余次锻打即可成钢，周期缩短至 2~3 天' },
+                    { metric: '含碳量控制精度', trad: '固体渗碳外硬内软，含碳量极不均匀', improved: '通过 3:1 生熟铁质量比精准控制最终成品含碳量在 0.7% 左右' },
+                    { metric: '兵器力学性能', trad: '青铜剑易折断，生铁兵器脆裂，纯熟铁刀易卷刃', improved: '刃口硬度可达 HRC 55~58 锋利耐磨，刀背保持高韧性不断裂' }
+                ]
+            },
+            {
+                id: 'cement',
+                title: '土法硅酸盐水泥烧制',
+                category: '基建冶炼',
+                ratioSummary: '石灰石（碳酸钙）75% : 黏土（硅铝质）25%（质量比），煅烧温度 1350~1400℃，混凝土 1 : 2 : 3',
+                principle: '将富含碳酸钙（CaCO₃）的石灰石与富含二氧化硅（SiO₂）、三氧化二铝（Al₂O₃）的黏土按 3:1 质量比粉碎混合，在 1350~1400℃ 高温窑中煅烧，发生固相反应生成硅酸三钙（C₃S）、硅酸二钙（C₂S）及铝酸三钙（C₃A）等水泥熟料矿物。熟料磨细加水后发生水化反应，生成交织的水化硅酸钙凝胶，无论在空气中还是水下均能凝结硬化为高强度人造石（水硬性胶凝材料）。',
+                materials: [
+                    { name: '石灰石', ratio: '生料配比 75%（3份）', source: '质地致密的青灰石或大量贝壳，破碎研粉' },
+                    { name: '黏土', ratio: '生料配比 25%（1份）', source: '河床或山坡挖掘的细腻黄土或红黏土（不含大石子与草根）' },
+                    { name: '煤炭', ratio: '高温窑炉燃料（或硬木炭）', source: '配合鼓风设备将竖窑温度提升至 1350℃ 以上' }
+                ],
+                steps: [
+                    { step: '1. 生料粉碎与 3:1 混合成球', detail: '将石灰石煅烧成生石灰粉（或直接研磨成细粉），与晒干研细的黏土粉按 75% : 25% 质量比充分干混均匀，加少量水捏成直径 3~4 厘米的泥球晒干。' },
+                    { step: '2. 1350℃ 高温煅烧熟料', detail: '将干燥生料球与燃料分层装入带鼓风的耐火竖窑中猛火煅烧至白炽状态（1350~1400℃），直至生料部分熔融烧结成暗绿黑色的坚硬颗粒（水泥熟料）。' },
+                    { step: '3. 冷却与精细粉磨', detail: '出窑冷却后，用石碾或水力捣碓将暗黑色熟料彻底粉碎研磨成极细的灰色粉末（细度越细，水化速度与早期强度越高）。' },
+                    { step: '4. 拌合混凝土与湿润养护', detail: '按“水泥 1 份 : 洁净河沙 2 份 : 碎石 3 份 : 水 0.5 份”搅拌均匀浇筑入木模，浇筑后每日洒水保持表面湿润养护 7~28 天达到设计强度。' }
+                ],
+                safety: '普通开放式篝火温度仅 700~800℃ 只能烧出普通生石灰，必须使用鼓风竖窑达到 1350℃ 方可烧出硅酸盐熟料；水泥遇水呈强碱性，徒手搅拌会导致皮肤干裂溃烂的碱性烧伤。',
+                comparison: [
+                    { metric: '水下硬化能力', trad: '古代石灰砂浆为气硬性，遇水即散，无法用于水下工程', improved: '水硬性胶凝材料，可在水中直接凝结硬化，适合修筑桥墩水坝' },
+                    { metric: '原料成本与粮食消耗', trad: '糯米灰浆需消耗大量珍贵粮食熬煮糯米汁，成本极高', improved: '仅需山石与泥土烧制，完全不消耗粮食，适合大规模筑城修路' },
+                    { metric: '抗压强度与硬化速度', trad: '三合土需数月缓慢碳化硬化，抗压强度有限', improved: '浇筑 7 天即可达到 70% 以上强度，28 天抗压强度远超天然砖石' }
+                ]
+            },
+            {
+                id: 'glass',
+                title: '钠钙透明玻璃熔制',
+                category: '基建冶炼',
+                ratioSummary: '石英砂（SiO₂）70% : 天然纯碱/精草木灰 18% : 石灰石粉 12%（质量比），熔融 1280℃，退火 500℃',
+                principle: '纯二氧化硅（石英砂）熔点高达 1723℃，古代窑炉难以熔化。加入碳酸钠（纯碱）或碳酸钾（精草木灰）作为助熔剂，高温下碱金属氧化物打破 Si-O 四面体网络，将共熔温度降至 1200℃ 左右。单纯的硅酸钠玻璃易溶于水（水玻璃），必须加入石灰石（CaCO₃）引入二价钙离子稳固硅氧网络结构，冷却后形成不溶于水的非晶态透明钠钙玻璃。',
+                materials: [
+                    { name: '石英砂', ratio: '配合料占比 70%', source: '洁白纯净的河砂或粉碎的白色石英岩（含铁量越低越无色透明）' },
+                    { name: '草木灰', ratio: '助熔剂占比 18%（纯碱或精钾碱）', source: '天然碱湖盐碱或草木灰多次淋滤蒸发提纯的白色碳酸钾碱粉' },
+                    { name: '石灰石', ratio: '稳定剂占比 12%', source: '洁白方解石或石灰石研细粉末，防止玻璃遇水溶解变浑' },
+                    { name: '黏土', ratio: '耐火熔融坩埚材料', source: '纯净高岭土烧制的耐高温玻璃熔炼坩埚' }
+                ],
+                steps: [
+                    { step: '1. 原料淘洗提纯与干混', detail: '用清水反复淘洗石英砂去除泥土与重金属杂质，晒干过 60 目细筛。按“石英砂 70% : 精碱 18% : 石灰石粉 12%”质量比充分混合均匀。' },
+                    { step: '2. 1280℃ 高温熔融澄清', detail: '配合料装入耐火高岭土坩埚，放入鼓风高温炉加热至 1250~1300℃ 熔化为粘稠玻璃液，继续保温 3~4 小时使内部气泡充分上浮逸出。' },
+                    { step: '3. 1000℃ 挑料吹制或浇铸', detail: '炉温降至 1000℃ 左右（玻璃液呈麦芽糖状粘稠态）时，用中空长铁管蘸取玻璃液边旋转边吹气塑形（制烧瓶、试管），或浇铸在涂油平坦铁板上压制成平板。' },
+                    { step: '4. 500℃ 缓慢退火消除内应力', detail: '成型的热玻璃器皿必须立即移入 500℃ 左右的保温炭灰坑或退火炉中，密封缓慢冷却 8~12 小时至室温，彻底消除玻璃内部热应力。' }
+                ],
+                safety: '未经 500℃ 缓慢退火的玻璃制品内部残存巨大热应力，稍微受热或轻微磕碰就会瞬间炸裂成无数碎渣伤人；若原料中含有微量氧化铁，成品会呈现浅绿色（古称琉璃），不影响光学与化学耐腐蚀性能。',
+                comparison: [
+                    { metric: '透光率与耐腐蚀性', trad: '糊窗麻纸不透光且怕雨淋，青铜器与陶器无法观察内部反应', improved: '高透光率且耐强酸强碱（氢氟酸除外），可制作透明化学器皿' },
+                    { metric: '光学仪器制造潜力', trad: '古代缺乏高透光均质材料，无法磨制折射透镜', improved: '纯净玻璃坯经细砂研磨抛光可制造放大镜、老花镜与望远镜片' },
+                    { metric: '农业设施应用', trad: '北方冬季严寒无法种植新鲜绿叶蔬菜', improved: '平板玻璃搭建日光温室可实现冬季反季节蔬菜育苗' }
+                ]
+            },
+            {
+                id: 'coking',
+                title: '焦炭干馏炼制',
+                category: '基建冶炼',
+                ratioSummary: '炼焦烟煤 100%，隔绝空气干馏温度 950~1000℃，干馏时间 24~36 小时，出焦率 65%~75%',
+                principle: '原煤直接用于高炉冶铁存在两大缺陷：原煤中的硫元素渗入铁水形成硫化铁会导致钢材高温开裂（热脆）；烟煤受热软化粘结会堵塞高炉风道。将烟煤装入密闭黏土窑中隔绝空气加热至 950~1000℃，煤炭中的挥发分（煤气、煤焦油、氨水及大部分硫化物）受热热解逸出，留下的银灰色多孔固体碳块即为焦炭，其固定碳含量超 85% 且抗压强度极高。',
+                materials: [
+                    { name: '煤炭', ratio: '粘结性烟煤 100%（块度 5~10cm）', source: '开采的黑色烟煤（石炭），敲碎并剔除矸石' },
+                    { name: '黏土', ratio: '密闭干馏窑砌筑与封门泥料', source: '耐火黏土与砖块筑成带外火道与顶部排烟冷凝管的干馏窑' }
+                ],
+                steps: [
+                    { step: '1. 筑建隔绝空气干馏窑', detail: '用耐火砖与黏土筑成拱形密闭炭化室，底部与两侧设独立加热火道（火道烟气不与煤料直接接触），顶部设陶土导出管连接冷水陶罐冷凝回收煤焦油。' },
+                    { step: '2. 装煤密封与外火道升温', detail: '将碎烟煤装满炭化室，用砖块和厚黏土彻底封死窑门严防空气漏入，点燃底部外火道持续加热，使炭化室温度逐步升至 950~1000℃。' },
+                    { step: '3. 高温干馏与回收煤焦油', detail: '维持高温干馏 24~36 小时，煤中挥发分经顶部陶管排出，在冷水罐中冷凝出黑色粘稠液体煤焦油（极佳的船舶与木材防腐涂料）。' },
+                    { step: '4. 隔绝冷却熄焦出窑', detail: '待顶部排气管不再冒出黄白色浓烟时，彻底封死所有火道通风口自然焖冷 24 小时（或打开窑门立即大量泼水急冷熄焦），取出银灰色多孔焦炭。' }
+                ],
+                safety: '干馏排出的粗煤气含有剧毒一氧化碳与硫化氢，炼焦窑必须建在远离居住区的下风向开阔地带；焖冷出窑前须确认内部完全冷却无红火，严防炽热焦炭接触大量空气发生爆燃。',
+                comparison: [
+                    { metric: '森林资源消耗', trad: '冶炼 1 吨生铁需消耗木炭约 2~3 吨（砍伐大量森林）', improved: '以地下煤炭替代木材，彻底解除大规模冶铁的森林资源瓶颈' },
+                    { metric: '高炉承载高度与抗压强度', trad: '木炭质地疏松易碎，大型高炉装料过高会压碎木炭堵塞风道', improved: '多孔焦炭机械强度极高，可支撑数米高的大型高炉顺畅鼓风' },
+                    { metric: '副产物综合利用', trad: '直接烧煤黑烟滚滚污染严重且硫害高', improved: '干馏脱除大部分硫分，同时副产煤焦油（防腐）与可燃煤气' }
+                ]
+            },
+
+            // ---------------- 4. 医药格物 (4项) ----------------
+            {
+                id: 'distilled-alcohol',
+                title: '天锅蒸馏高浓度酒精',
+                category: '医药格物',
+                ratioSummary: '低度发酵酒醪（酒精度 8%~12%）经两次天锅蒸馏，掐去前 5% 酒头，得 75% 医用酒精',
+                principle: '乙醇标准沸点为 78.4℃，低于水的 100℃。对低度粮食发酵酒进行水浴或文火加热时，气相中乙醇蒸气浓度远高于液相。蒸气上升接触顶部盛满冷水的尖底铁锅（天锅）外壁时放热冷凝，顺尖底滴落入中央接酒器中（气液相变分离提纯）。由于发酵酒中混有沸点 64.7℃ 的剧毒甲醇，必须弃去最先蒸出的 5% 酒头；通过两次复蒸即可将酒精体积分数提纯至 75%（能顺利穿透细菌细胞壁并使内部蛋白凝固变性的最佳消毒浓度）。',
+                materials: [
+                    { name: '粮食/酒曲', ratio: '低度发酵酒醪 100 份（基准）', source: '高粱、大米或小麦加酒曲发酵 15 天而成的低度浊酒' },
+                    { name: '木炭', ratio: '无烟文火热源', source: '硬木炭，便于精准控制加热火力防止酒醪焦糊' },
+                    { name: '黏土', ratio: '蒸馏器接口密封湿泥', source: '细黏土和泥，用于密封木甑与铁锅接缝防酒精蒸气泄漏' }
+                ],
+                steps: [
+                    { step: '1. 组装天锅蒸馏装置', detail: '底层大铁锅盛入过滤后的发酵清酒（不超过锅深 2/3），锅上架无底木甑，木甑中央用木架托起一只瓷碗作接酒器，木甑顶部严密扣上一口盛满冷水的尖底铁锅（天锅），所有接缝用湿黏土封死。' },
+                    { step: '2. 文火蒸馏与勤换天锅冷水', detail: '灶膛点文火加热底层酒液至微沸（约 85℃），酒精蒸气上升遇尖底天锅外壁冷凝，顺尖底滴入中央接酒碗。天锅内冷水变热后及时舀出更换冷水。' },
+                    { step: '3. 严格“掐头”去除甲醇', detail: '最先冷凝流出的约占总预计出酒量 5% 的初馏液（酒头）富含低沸点剧毒甲醇，必须单独接出作燃料（严禁医用或饮用）。' },
+                    { step: '4. 二次复蒸提纯至 75%', detail: '收集酒精度约 45%~50% 的中段酒液，加水稀释至 30% 后进行第二次天锅蒸馏（同样掐去前 3% 酒头），所得中段馏出液浓度可达 75%~80%（用火柴点燃火焰呈纯蓝色、燃烧后几乎无水渍残留）。' }
+                ],
+                safety: '【防火与防中毒警告】高浓度酒精及其蒸气极易燃，蒸馏装置接缝必须严密，现场严禁明火靠近接酒口；发酵酒中含有微量甲醇（可致视神经萎缩失明），任何批次蒸馏均必须严格执行“掐头”操作。',
+                comparison: [
+                    { metric: '乙醇体积浓度', trad: '古代发酵黄酒/米酒最高酒精度仅 10%~15%', improved: '两次天锅蒸馏可稳定获得 75%~80% 高纯度乙醇' },
+                    { metric: '医用杀菌效力', trad: '低度酒无法有效杀灭常见化脓性细菌', improved: '75% 酒精可在 1~2 分钟内灭活绝大多数细菌繁殖体与包膜病毒' },
+                    { metric: '化工溶剂用途', trad: '缺乏有机溶剂，无法提取脂溶性药物与天然树脂', improved: '可作为极佳有机溶剂用于提取草药有效成分及配制虫胶清漆' }
+                ]
+            },
+            {
+                id: 'aseptic-surgery',
+                title: '外科清创与沸水消毒规程',
+                category: '医药格物',
+                ratioSummary: '器械与敷料 100℃ 持续煮沸 30 分钟；清创用 0.9% 无菌生理盐水（精盐 9g + 煮沸清水 1000ml）',
+                principle: '古代创伤致死的首要原因并非刀箭物理损伤本身，而是厌氧破伤风梭菌、金黄色葡萄球菌与链球菌侵入伤口引发的败血症与气性坏疽。利用 100℃ 沸水持续加热 30 分钟可破坏细菌蛋白质与核酸结构，彻底杀灭所有细菌繁殖体；使用渗透压与人体血浆完全一致的 0.9% 氯化钠溶液（等渗生理盐水）冲洗创口，可在不损伤暴露组织细胞的前提下机械清除泥沙、血块与细菌，配合 75% 酒精皮肤消毒建立无菌手术屏障。',
+                materials: [
+                    { name: '粗盐', ratio: '提纯精盐 9 克配 1000 毫升水（0.9%质量体积比）', source: '经重结晶提纯的无杂雪白精盐，配制等渗清创盐水' },
+                    { name: '木炭', ratio: '持续煮沸灭菌热源', source: '硬木炭，确保器械与敷料维持 100℃ 沸腾 30 分钟' },
+                    { name: '草木灰', ratio: '肥皂刷手去污剂', source: '用于术前术者双手彻底去污刷洗' }
+                ],
+                steps: [
+                    { step: '1. 器械、缝线与敷料煮沸灭菌', detail: '将金属手术刀、镊子、止血钳、蚕丝缝合线及裁剪好的洁白细麻布纱布完全浸没于清水中，加盖大火煮沸并维持沸腾 30 分钟（海拔高处延长至 45 分钟），用煮沸过的镊子夹出沥干备用。' },
+                    { step: '2. 配制无菌 0.9% 生理盐水', detail: '精确称取 9 克提纯精盐溶于 1000 毫升洁净清水中，装入陶壶加盖煮沸 15 分钟灭菌，密封自然冷却至体温（37℃ 左右）备用。' },
+                    { step: '3. 术者无菌刷手与术野消毒', detail: '医者用草木灰肥皂与煮沸凉开水反复刷洗双手及前臂 5 分钟，再用 75% 酒精彻底擦拭双手；患者伤口周围 15 厘米正常皮肤用 75% 酒精由内向外环形擦拭消毒 3 遍（严禁将酒精直接倒入深部开放伤口内）。' },
+                    { step: '4. 彻底清创引流与无菌包扎', detail: '用大量无菌 0.9% 生理盐水反复冲洗伤口深处，用灭菌镊子彻底清除泥沙、碎骨片与发黑失活的坏死肌肉组织；污染严重的深部刺伤留置无菌麻布引流条不予一期缝死（防止厌氧破伤风杆菌繁殖），外覆多层煮沸烘干的洁净麻布纱布包扎。' }
+                ],
+                safety: '【破伤风防控铁律】严禁使用锅底灰、香灰、生草药泥或蜘蛛网直接敷贴未清创的伤口（此类物品富含破伤风梭菌芽孢，封堵伤口制造厌氧环境会直接导致致命破伤风）；深部窄口刺伤必须充分敞开清创引流。',
+                comparison: [
+                    { metric: '创伤化脓感染与破伤风率', trad: '香灰止血与未消毒器械操作，重伤员创口感染化脓率超 70%', improved: '建立煮沸灭菌与等渗盐水清创规程，创口一期愈合率超 90%' },
+                    { metric: '清创冲洗液对组织损伤', trad: '直接用河水或井水冲洗带入大量水中杂菌且低渗水肿', improved: '0.9% 无菌等渗生理盐水完全无菌且与体液等渗，保护新生肉芽组织' },
+                    { metric: '截肢与取箭手术存活率', trad: '取箭后因继发败血症死亡率极高', improved: '彻底清创与无菌敷料隔离外部细菌，术后存活率提升数倍' }
+                ]
+            },
+            {
+                id: 'artemisinin',
+                title: '青蒿冷萃提取工艺',
+                category: '医药格物',
+                ratioSummary: '鲜嫩黄花蒿叶 100 份 : 凉开水（<35℃）200 份冷绞取汁，加 2% 熟植物油乳化增溶',
+                principle: '古代所谓“南方瘴气”主要为按蚊传播疟原虫所致的恶性疟疾。青蒿（植物学名黄花蒿）叶片中的抗疟有效成分青蒿素分子内部含有一个对热极度敏感的“内过氧桥”基团，温度超过 60℃ 尤其是传统中药 100℃ 水煎会瞬间破坏该过氧桥使其彻底丧失抗疟活性。依据葛洪《肘后备急方》“青蒿一握，以水二升渍，绞取汁，尽服之”的低温冷萃原理，在常温（<35℃）下捣碎绞汁并加入少量油脂助溶，可完整保留青蒿素过氧桥结构，在红细胞内裂解产生自由基杀灭疟原虫。',
+                materials: [
+                    { name: '青蒿', ratio: '花蕾期鲜嫩黄花蒿枝叶 100 份', source: '夏秋花蕾期采摘的野生黄花蒿（叶片青绿、揉碎有特殊浓烈清香）' },
+                    { name: '油脂', ratio: '熟植物油 2 份（助溶增效剂）', source: '煮沸冷却的熟菜籽油或麻油（青蒿素难溶于水而易溶于油脂，提升肠道吸收率）' }
+                ],
+                steps: [
+                    { step: '1. 精准辨识采摘黄花蒿', detail: '严格区分含青蒿素的“黄花蒿”（茎叶青绿、叶裂细密、气味清香）与不含有效成分的“臭蒿”，选取花蕾将开未开时青蒿素含量最高的嫩叶，阴干或鲜用（严禁日光暴晒）。' },
+                    { step: '2. 低温浸泡与石臼捣碎', detail: '取鲜嫩黄花蒿叶洗净，加入 2 倍重量的凉开水（水温严格控制在 35℃ 以下）浸泡 30 分钟软化，放入石臼中用木杵用力捣烂成浓绿色浆糊。' },
+                    { step: '3. 纱布绞汁与加熟油乳化', detail: '将浓绿草浆装入洁净细麻布袋用力绞出全部绿色汁液，滴入约占汁液总量 2% 的熟植物油用力搅打成乳浊液，立即给寒热往来发作的疟疾患者分次服下，连续服用 5~7 日彻底清除血中疟原虫。' },
+                    { step: '4. 营地防蚊切断传播链', detail: '同时排干营地周边死水坑，黄昏点燃艾蒿烟熏营帐，并为士兵配发细麻布蚊帐，阻断按蚊叮咬传播。' }
+                ],
+                safety: '严禁使用沸水冲泡或砂锅煎煮青蒿，高温会导致过氧桥断裂使抗疟药效归零；野外采摘时须仔细辨别叶片特征，严防误采剧毒伞形科植物（如毒芹）。',
+                comparison: [
+                    { metric: '青蒿素活性成分保留率', trad: '传统中药砂锅 100℃ 水煎煮，有效成分破坏率超 95%', improved: '35℃ 以下低温冷榨提取，完整保留内过氧桥活性分子' },
+                    { metric: '人体肠道生物利用度', trad: '纯水汤剂难以溶解脂溶性青蒿素，吸收率极低', improved: '加入 2% 植物油乳化增溶，肠道吸收效率提升 3~4 倍' },
+                    { metric: '疟疾控制周期', trad: '寒热往来反复发作，恶性疟疾死亡率极高', improved: '连续冷萃服药 5~7 天可快速杀灭红细胞内期疟原虫控制症状' }
+                ]
+            },
+            {
+                id: 'variolation',
+                title: '人痘/牛痘接种免疫',
+                category: '医药格物',
+                ratioSummary: '首选天然牛痘清亮痘浆上臂划痕接种；无牛痘时选用轻症陈化人痘干痂（阴干 30 天以上减毒熟苗）',
+                principle: '天花由天花病毒引起，病死率高达 30% 以上。牛痘病毒与天花病毒在基因与表面抗原结构上高度同源（交叉抗原），但牛痘病毒对人类毒力极弱，接种后仅在局部皮肤引起轻微水疱并刺激人体免疫系统产生持久的特异性中和抗体与记忆淋巴细胞，从而获得对致命天花病毒的终身交叉免疫力。在未发现牛痘的地区，采用轻症天花恢复期患者的干燥痘痂存放陈化（使病毒部分失活减毒为“熟苗”）进行鼻腔接种，亦可诱导主动免疫。',
+                materials: [
+                    { name: '粗盐', ratio: '0.9% 无菌生理盐水（调浆稀释液）', source: '煮沸冷却的 0.9% 精盐水，用于稀释痘浆或调和干痂' },
+                    { name: '木炭', ratio: '接种针 100℃ 煮沸灭菌热源', source: '用于煮沸消毒接种银针/钢针，防止继发细菌化脓感染' }
+                ],
+                steps: [
+                    { step: '1. 采集与低温保存天然牛痘浆', detail: '巡查各地牧场寻找奶牛乳房或挤奶女工手上的典型圆形凹陷牛痘水疱，用煮沸消毒的银针挑破未化脓的清亮水疱，以洁净棉线浸吸痘浆，装入密封小瓷瓶置于冰窖或深井冷水处低温保存。' },
+                    { step: '2. 上臂皮肤无菌划痕接种', detail: '用 75% 酒精擦拭接种者上臂外侧皮肤待干，用煮沸冷却的银针蘸取牛痘浆液在皮肤表层轻划“井”字小痕（以微渗透明组织液而不出血为最佳深度）。' },
+                    { step: '3. 观测局部免疫应答', detail: '接种后第 5~7 天局部出现红晕与小水疱、第 10 天自然结痂脱落，标志着免疫建立成功，全程无传染性。' },
+                    { step: '4. 备用方案：人痘陈化熟苗隔离接种', detail: '若一时未寻获牛痘，必须选取轻症顺症天花患者康复脱落的干燥痘痂，置于阴凉干燥处存放陈化 30 天以上（自然减毒为熟苗）后研粉吹鼻，且接种者必须在独立隔离区严格隔离 21 天。' }
+                ],
+                safety: '【防疫隔离铁律】牛痘接种安全无传染性应作为绝对首选；若迫不得已使用人痘熟苗，受种者在排毒期内具有强传染性，必须与未免疫人群彻底隔离 3 周，且严禁采集重症患者的脓液进行接种（必引发烈性天花传染）。',
+                comparison: [
+                    { metric: '天花感染后病死率', trad: '未免疫人群感染天花病死率高达 30%~40%，幸存者多留麻面或失明', improved: '接种牛痘获得交叉免疫后，天花感染率与重症死亡率降至 0.5% 以下' },
+                    { metric: '接种安全性与传染风险', trad: '早期直接用新鲜天花脓液种人痘，常引发医源性天花大流行', improved: '牛痘接种无传染性且不引发全身症状，可大规模安全推广' },
+                    { metric: '免疫保护持久度', trad: '依赖自然感染幸存获得免疫，代价惨重', improved: '一次成功接种牛痘可提供长达十余年乃至终身的坚实免疫屏障' }
+                ]
+            },
+
+            // ---------------- 5. 文教度量 (5项) ----------------
+            {
+                id: 'papermaking',
+                title: '蔡侯造纸术',
+                category: '文教度量',
+                ratioSummary: '构树皮/嫩竹丝 100 份 : 草木灰 25 份碱水蒸煮 8 小时，纸浆水浴浓度 0.3%~0.5% 竹帘抄造',
+                principle: '植物韧皮（构树皮、麻纤维）与竹材由纤维素、半纤维素及粘结它们的木质素构成。利用草木灰碱液（碳酸钾碱性溶液）在 100℃ 下长时间蒸煮，使木质素与果胶发生碱性水解溶出，释放出纯净柔韧的植物纤维素。经石臼机械舂捣使纤维充分离解并“分丝帚化”（表面分裂出微细原纤），分散于清水中用细密竹帘抄起沥水，干燥过程中相邻纤维素分子的羟基之间形成密集氢键网络，交织成平整吸墨的纸张。',
+                materials: [
+                    { name: '木材/竹子', ratio: '构树皮/嫩竹丝 100 份 + 细竹丝抄纸帘 1 副', source: '剥取构树内皮、嫩竹丝或破麻布做纸浆；细竹丝编织密纹抄纸帘' },
+                    { name: '草木灰', ratio: '占干纤维原料重的 25%', source: '浸出碱水用于蒸煮脱除木质素与果胶' },
+                    { name: '黏土', ratio: '高岭土白土填料 5%（可选）', source: '极细腻洁白高岭土粉，加入纸浆提高纸张白度与书写平滑度' }
+                ],
+                steps: [
+                    { step: '1. 原料浸灰与高温碱水蒸煮', detail: '构树皮或嫩竹丝切段用水浸泡 3 天，加入占原料重 25% 的草木灰拌匀入大锅加水没过，大火煮沸保持微沸蒸煮 8 小时，直至纤维软烂手捏即散。' },
+                    { step: '2. 清水漂洗与日光自然漂白', detail: '用流动清水反复漂洗掉黑褐色碱液与溶出的木质素残渣，将湿纤维摊铺在向阳山坡上日光暴晒淋水 5~7 天进行自然氧化漂白。' },
+                    { step: '3. 石臼舂捣打浆', detail: '将漂白后的纤维放入石臼中用木杵反复舂捣 1~2 小时，打成均匀细腻、无粗硬纤维束的绒毛状纸浆。' },
+                    { step: '4. 竹帘抄纸与压榨烘干', detail: '纸浆倒入水槽调成 0.3%~0.5% 浓度的均匀悬浮液（加少许猕猴桃藤汁作悬浮分散剂）。双手持竹帘斜插入水平稳端起并前后轻晃使纤维均匀交织；湿纸膜逐张叠摞加压挤水，最后贴于温热火墙烘干揭下。' }
+                ],
+                safety: '蒸煮脱木质素产生的黑褐色废碱液碱性较强且耗氧量高，须引入沉淀池中和后再排放，避免污染饮用水源；抄纸时竹帘端平晃动须均匀，防止纸张厚薄不均。',
+                comparison: [
+                    { metric: '书写载体重量与体积', trad: '竹简木牍极为笨重，一部十万字典籍重达数十斤', improved: '同等字数纸质书籍重量降至竹简的 1% 以下，便于携带储藏' },
+                    { metric: '单张制作成本', trad: '缣帛（丝绸）价格昂贵，仅皇室贵族可用', improved: '树皮、嫩竹与破麻布原料广泛，造纸成本降至丝帛的数十分之一' },
+                    { metric: '书写与印刷适性', trad: '竹简表面窄小且凹凸不平，无法进行整版印刷', improved: '纸面平整吸墨均匀，为后续活字印刷术普及提供必要载体' }
+                ]
+            },
+            {
+                id: 'movable-type',
+                title: '毕昇胶泥活字印刷',
+                category: '文教度量',
+                ratioSummary: '胶泥刻反字烧成陶活字，排版固定蜡：松香 70% : 蜂蜡 20% : 纸灰 10%，油墨：松烟 30% : 熟桐油 70%',
+                principle: '将常用汉字拆解为独立标准化反字字模（细腻胶泥刻反字后入窑 900℃ 烧结成坚硬不变形的陶活字）。排版时利用热塑性固定剂（松香、蜂蜡与纸灰混合物）：在带框铁板上铺蜡粉并排入活字，微火加热铁板使蜡熔化，用光滑平板将所有字面压至同一水平面，冷却凝固即锁定版面；传统水墨在陶字表面因表面张力易聚成水珠打滑，改用松烟碳黑与氧化聚合后的熟桐油研磨成油性油墨，均匀附着字面清晰转印至纸张。',
+                materials: [
+                    { name: '黏土', ratio: '细腻胶泥（烧制陶活字字模）', source: '淘洗过筛的纯净细腻胶泥，无砂粒杂质' },
+                    { name: '松烟/桐油', ratio: '松烟 30% : 熟桐油 70%（油墨）；松香 70% : 蜂蜡 20%（固定蜡）', source: '松木不完全燃烧收集细腻松烟碳黑；桐油熬炼至拉丝成熟桐油' },
+                    { name: '生铁', ratio: '带框排版铁板 2 块（交替使用）', source: '表面磨平的生铁板与四周铁框，导热均匀便于加热固定活字' }
+                ],
+                steps: [
+                    { step: '1. 刻制标准化胶泥反字并烧硬', detail: '将细腻胶泥压成厚 1 厘米的均匀泥片，切成底面见方的标准方柱体，按字频表（常用字多备数十枚）在端面刻出镜像反字，阴干后入窑 900℃ 烧结成坚硬陶质活字，按韵部字盘分类存放。' },
+                    { step: '2. 研磨松烟桐油印刷油墨', detail: '将松烟碳黑与熟桐油按 3:7 质量比放入石臼充分研磨成浓黑粘稠油墨（可加 1% 猪胆汁改善润湿性），确保刷在陶字表面均匀不聚珠。' },
+                    { step: '3. 铁板铺蜡排字与压平', detail: '在带框铁板上均匀撒一层“松香 70% : 蜂蜡 20% : 细纸灰 10%”混合粉，拣出活字排满铁框。将铁板置于炭火上微烤使蜡粉熔化，立即用光滑木板将字面压至绝对齐平，冷却凝固。' },
+                    { step: '4. 双版交替刷墨印刷与拆版回收', detail: '一版印刷时另一版同步排字：用棕刷蘸松烟油墨均匀刷于字面，覆纸轻刷纸背即成清晰印页。印毕再次加热铁板熔蜡，取下活字刷净油墨归盘重复使用。' }
+                ],
+                safety: '加热铁板熔化松香蜂蜡时仅需微火（约 80~100℃），严禁大火猛烤导致松香起火燃烧；排字完毕印刷前须由专人核对镜像反字，防止错别字批量印出。',
+                comparison: [
+                    { metric: '制版周期与灵活度', trad: '雕版印刷刻一块整版需数月，错一字需挖补且印完后木版闲置', improved: '活字随排随印，数小时即可排好一版，印完拆版回收重复使用' },
+                    { metric: '单日印制产能', trad: '人工手抄书籍每人每日仅能抄写约 2000~3000 字', improved: '双版交替刷印每日可印制完整书页 1000~1500 张' },
+                    { metric: '印迹清晰度与防水性', trad: '水墨遇水即晕染模糊', improved: '松烟桐油油墨干燥后耐水耐擦，字迹乌黑锐利' }
+                ]
+            },
+            {
+                id: 'vernier-caliper',
+                title: '游标卡尺与标准度量衡',
+                category: '文教度量',
+                ratioSummary: '主尺每格 1mm，游标取主尺 9mm 等分为 10 格（每格 0.9mm），差动测量精度达 0.1mm',
+                principle: '人眼直接分辨尺面上 0.1 毫米的微小位移极为困难。游标卡尺利用主尺与副尺（游标）的微小刻线间距差来放大读数（差动放大原理）：主尺最小刻度为 1 毫米，游标尺上量取主尺 9 毫米的长度精确等分为 10 格，即游标每格为 0.9 毫米，主尺与游标每格相差 0.1 毫米。测量工件时，先读取游标零刻线左侧的主尺整毫米数，再观察游标上第 n 条刻线与主尺刻线完全对齐，即可精确读取小数部分 0.n 毫米。',
+                materials: [
+                    { name: '熟铁', ratio: '平直熟铁或青铜尺身与滑动游标框 1 套', source: '质地均匀不变形的熟铁板条或硬质青铜板，研磨至两面绝对平直' },
+                    { name: '木炭', ratio: '刻线显影填充剂（炭粉混桐油）', source: '极细木炭粉调和桐油擦入金属刻线凹槽，干燥后刻度清晰醒目' }
+                ],
+                steps: [
+                    { step: '1. 研磨基准平直尺身与固定量爪', detail: '选用厚 3 毫米的硬质青铜或熟铁板条，在平坦细磨石上交叉研磨至两面绝对平直，一端锻折并研磨出垂直于尺身的内外测量固定卡爪。' },
+                    { step: '2. 步进法刻画主尺毫米刻度', detail: '用精密两脚规以 1 毫米为步距在主尺正面连续步进刻出等距主刻度线（每 10 格刻长线标注数字），确保刻线细直均匀。' },
+                    { step: '3. 制作滑动游标框与 10 分之 9 差动刻线', detail: '打造紧贴主尺滑动无旷量的金属滑框（带滑动量爪），在滑框窗口边缘准确量取主尺 9 毫米的长度，用分规等分为 10 格（每格 0.9 毫米），刻出游标刻线并擦入炭油显影。' },
+                    { step: '4. 制定军工与农具公差标准模具', detail: '以基准尺统一制作标准量规（通止规），规定弩机销轴、战车车轴及农具榫卯的允许尺寸偏差范围，所有工坊出厂零件均须通过量规检验。' }
+                ],
+                safety: '精密测量卡尺严禁当作锤子敲击或当作撬棍使用，避免量爪变形导致零点误差；日常使用后需擦净汗渍并涂抹薄层动物油脂防锈。',
+                comparison: [
+                    { metric: '长度测量最小分辨精度', trad: '古代木尺/铜尺最小刻度为 1 分（约 2.3mm），以下全靠肉眼估读', improved: '游标差动刻度无需估读即可直接精确测量至 0.1 毫米' },
+                    { metric: '跨地域零件互换性', trad: '各工匠凭经验手工打磨，弩机与车轴无法跨器互换', improved: '引入公差标准与游标检验，战场损坏装备可直接拆件拼装修复' },
+                    { metric: '度量衡统一基准', trad: '各地尺斗斤两标准不一，税收与工程核算误差大', improved: '依托精密金属基准器建立全国统一的长度、容积与重量换算标准' }
+                ]
+            },
+            {
+                id: 'rammed-earth-arch',
+                title: '三合土夯筑与拱券结构',
+                category: '文教度量',
+                ratioSummary: '三合土体积比：熟石灰 1 : 黏土 2 : 河沙/碎石 3，含水率 12%~15%，分层虚铺 15cm 夯实至 10cm',
+                principle: '三合土利用消石灰（Ca(OH)₂）与黏土中的活性二氧化硅、三氧化二铝在潮湿条件下发生火山灰反应生成水化硅酸钙胶结物，同时吸收空气中二氧化碳碳化生成碳酸钙晶体，将级配河沙与碎石胶结为整体高强度人工石。桥梁与城门洞采用半圆形或抛物线形拱券结构，利用楔形砖石将竖向重力荷载全部转化为沿拱圈轴线传递的轴向压应力（消除砖石最怕的拉应力），并将水平推力导入两岸厚重桥台或城墙。',
+                materials: [
+                    { name: '生石灰', ratio: '消石灰占三合土总体积 1/6（1份）', source: '生石灰加水充分熟化消解 7 天而成的细腻熟石灰膏/粉' },
+                    { name: '黏土', ratio: '占三合土总体积 2/6（2份）', source: '过筛去除草根的纯净黏土，提供活性硅铝成分与粘结力' },
+                    { name: '石英砂', ratio: '粗河沙与碎石占总体积 3/6（3份）', source: '洗净粗河沙与粒径 2~4cm 碎石骨料，构成抗压骨架' },
+                    { name: '木材/竹子', ratio: '拱券临时木拱架 1 套', source: '圆木搭建半圆形临时支撑拱架，待拱圈合龙砂浆硬化后拆除' }
+                ],
+                steps: [
+                    { step: '1. 生石灰充分消解与配料拌合', detail: '生石灰加水熟化静置 7 天以上（彻底消除未消解的过火石灰颗粒，防止日后吸水膨胀鼓裂墙体），按“熟石灰 1 : 黏土 2 : 粗沙碎石 3”体积比反复翻拌均匀，加水调节至手握成团、落地散开的含水率（约 12%）。' },
+                    { step: '2. 分层薄铺重锤夯实', detail: '在基槽或木夹板内每次虚铺 15 厘米厚混合料，用石夯或铁夯反复夯打至密实厚度 10 厘米（表面泛浆），层与层之间划毛结合，连续夯筑成城墙或路基。' },
+                    { step: '3. 搭设木拱架与对称砌筑楔形拱石', detail: '修建跨河石拱桥或大跨度城门时，先架设坚固木拱架，从两侧桥台拱脚同时向拱顶对称砌筑上宽下窄的楔形砖石（灰缝填满石灰砂浆）。' },
+                    { step: '4. 嵌入拱顶龙门石与拆架养护', detail: '在拱圈正中央打入最关键的楔形“龙门石”使全拱锁紧受力，保持湿润养护 14 天待砂浆硬化后，由拱顶向两侧对称缓慢拆除木拱架。' }
+                ],
+                safety: '生石灰必须提前加水熟化 7 天以上方可使用，若混入未熟化的生石灰颗粒，日后吸水体积膨胀 2 倍会撑裂城墙或路面；拆除木拱架必须对称缓慢卸落，严禁单侧突然拆除导致拱圈失稳坍塌。',
+                comparison: [
+                    { metric: '门洞与桥梁最大跨度', trad: '水平石梁受弯易在底部产生拉应力断裂，跨度通常不超过 3~4 米', improved: '拱券结构全截面受压，石拱桥单孔跨度可轻松突破 15~30 米' },
+                    { metric: '城墙与驰道抗雨水冲刷能力', trad: '纯黄土夯筑城墙遇暴雨易坍塌滑坡，驰道雨天泥泞难行', improved: '三合土碳化硬化后耐水耐冲刷，抗压强度接近天然砂岩' },
+                    { metric: '结构使用寿命', trad: '木梁桥易腐朽火灾，寿命仅 10~20 年', improved: '石拱桥与三合土基建寿命可达数百年以上' }
+                ]
+            },
+            {
+                id: 'accounting',
+                title: '复式收支账簿',
+                category: '文教度量',
+                ratioSummary: '引入 0-9 位值制数字，严格执行“有借必有贷，借贷必相等”双轨登记与月末试算平衡核查',
+                principle: '古代竖排汉字流水账无法直接列竖式运算且极易被篡改（如“一”改“十”）。引入包含零占位符的 0-9 十进制位值制数字，使数字位置直接决定数量级，加减乘除效率呈几何级提升。结合复式记账恒等式“资产 = 负债 + 权益”，每一笔钱粮收支必须在两个或两个以上相互联系的账户中以相等金额同时登记“资金去向（借方）”与“资金来源（贷方）”，期末汇总所有账户借方总额与贷方总额必然严格相等，任何单边贪墨或算错均可自动检出。',
+                materials: [
+                    { name: '木材/竹子', ratio: '硬木珠算盘 1 具（上 1 珠下 4 珠或上 2 下 5 珠）', source: '硬木框穿细竹档与算珠，配合珠算口诀大幅提升加减乘除速度' },
+                    { name: '松烟/桐油', ratio: '印刷标准化横式分栏账册与防篡改印泥', source: '印制固定“日期、凭证号、摘要、借方、贷方、余额”横式表格账簿' }
+                ],
+                steps: [
+                    { step: '1. 推行 0-9 位值制数字与横式表格账簿', detail: '在各级粮仓与府库推行 0~9 十个数字符号（大额数字同时加注繁体大写汉字防涂改），废除竖排流水账，统一印制带固定横纵分栏格线的标准账册。' },
+                    { step: '2. 建立双轨科目与有借必有贷登记', detail: '设立“库存现银、库存粮草、税收收入、军饷支出、工程拨款”等核心科目。任何一笔经济业务必须双边登记，例如“拨付现银 5000 贯修筑水渠”，须同时记入“工程支出（借方）5000”与“库存现银（贷方）5000”。' },
+                    { step: '3. 编制月末试算平衡表自动查错', detail: '每月末汇总全部科目的借方发生额合计数与贷方发生额合计数进行比对。若两者出现哪怕一文钱差额，立即逐页核查原始凭证锁定错账或虚报贪墨源头。' },
+                    { step: '4. 实行钱、账、物三权分立审计', detail: '出纳（管现银）、会计（管账簿）与库吏（管实物粮仓）三人分岗制衡，每笔出入库须三方凭证编号一致并签字画押，定期盘点实物库存与账面余额核对。' }
+                ],
+                safety: '账簿严禁撕页、挖补或涂改，写错数字须用红笔划双线注销并在旁重写正确数字加盖经手人印章；账册按年份装订成册归档，严防潮湿霉变与鼠咬。',
+                comparison: [
+                    { metric: '全国钱粮总账核算效率', trad: '摆弄算筹与汉字流水账，核算一郡年度账目需数十名老吏耗时月余', improved: '0-9 位值制竖式运算配合珠算盘，核算效率提升 10 倍以上' },
+                    { metric: '假账与单边贪墨检出能力', trad: '单式流水账漏记、重记或改字极难察觉', improved: '借贷双轨平衡机制使任何单边克扣直接破坏总额平衡从而自动暴露' },
+                    { metric: '财政透明度与预算控制', trad: '仅知总收总支，难以追踪各专项工程真实资金流向', improved: '按科目分类清晰呈现各项税收来源与军政基建支出明细' }
+                ]
+            }
+        ];
+
+        // ==================== 20类基础古代原料字典 ====================
+        const ANCIENT_MATERIALS = [
+            '草木灰', '生石灰', '黏土', '粗盐', '硝土',
+            '木炭', '生铁', '熟铁', '牛角/牛筋', '木材/竹子',
+            '大豆', '油脂', '青蒿', '硫磺', '煤炭',
+            '松烟/桐油', '石灰石', '石英砂', '粮食/酒曲', '铁矿石'
+        ];
+
+        const CATEGORIES = ['全部', '民生农耕', '军事军备', '基建冶炼', '医药格物', '文教度量'];
+
+        // ==================== 应用状态 ====================
+        let state = {
+            selectedCategory: '全部',
+            searchQuery: '',
+            ownedMaterials: new Set(),
+            activeModalId: null
+        };
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            renderCategoryTabs();
+            renderCards();
+            renderMaterialsGrid();
+            updateInventoryMatches();
+        });
+
+        function saveState() {
+            try {
+                localStorage.setItem('craft_wiki_owned_v3', JSON.stringify([...state.ownedMaterials]));
+            } catch (e) {}
+        }
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('craft_wiki_owned_v3');
+                if (saved) state.ownedMaterials = new Set(JSON.parse(saved));
+            } catch (e) {}
+        }
+
+        // ==================== 原料库反查面板逻辑 ====================
+        function toggleInventoryPanel() {
+            const panel = document.getElementById('inventoryPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function renderMaterialsGrid() {
+            const grid = document.getElementById('materialsGrid');
+            document.getElementById('selectedMatCount').textContent = state.ownedMaterials.size;
+
+            grid.innerHTML = ANCIENT_MATERIALS.map(mat => {
+                const isSelected = state.ownedMaterials.has(mat);
+                return `
+                    <button 
+                        onclick="toggleMaterial('${mat}')"
+                        class="px-3 py-2 rounded-lg text-xs text-left border transition-colors flex items-center justify-between ${
+                            isSelected 
+                            ? 'bg-bronzelight border-bronze text-bronze font-semibold' 
+                            : 'bg-parchment border-borderline text-ink hover:border-muted'
+                        }"
+                    >
+                        <span class="truncate">${mat}</span>
+                        <span class="ml-1.5 shrink-0">${isSelected ? '✓' : '+'}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function toggleMaterial(matName) {
+            if (state.ownedMaterials.has(matName)) {
+                state.ownedMaterials.delete(matName);
+            } else {
+                state.ownedMaterials.add(matName);
+            }
+            saveState();
+            renderMaterialsGrid();
+            updateInventoryMatches();
+            renderCards();
+            if (state.activeModalId) {
+                const item = ENCYCLOPEDIA_DATA.find(d => d.id === state.activeModalId);
+                if (item) renderModalRatioTable(item);
+            }
+        }
+
+        function clearInventory() {
+            state.ownedMaterials.clear();
+            saveState();
+            renderMaterialsGrid();
+            updateInventoryMatches();
+            renderCards();
+        }
+
+        function updateInventoryMatches() {
+            const ready = [];
+            const almost = [];
+
+            ENCYCLOPEDIA_DATA.forEach(item => {
+                const missing = item.materials.filter(m => !state.ownedMaterials.has(m.name));
+                if (missing.length === 0) {
+                    ready.push(item);
+                } else if (missing.length === 1) {
+                    almost.push({ item, missingName: missing[0].name });
+                }
+            });
+
+            document.getElementById('readyCount').textContent = `${ready.length} 项`;
+            document.getElementById('almostCount').textContent = `${almost.length} 项`;
+
+            const readyContainer = document.getElementById('readyList');
+            if (ready.length === 0) {
+                readyContainer.innerHTML = `<p class="text-muted py-2">暂无完全满足原料条件的条目。</p>`;
+            } else {
+                readyContainer.innerHTML = ready.map(item => `
+                    <div onclick="openModal('${item.id}')" class="cursor-pointer p-2 rounded bg-paper border border-borderline hover:border-bronze flex items-center justify-between">
+                        <span class="font-medium text-ink truncate">${item.title}</span>
+                        <span class="text-bronze shrink-0 ml-2">查看 →</span>
+                    </div>
+                `).join('');
+            }
+
+            const almostContainer = document.getElementById('almostList');
+            if (almost.length === 0) {
+                almostContainer.innerHTML = `<p class="text-muted py-2">暂无仅缺 1 种原料的条目。</p>`;
+            } else {
+                almostContainer.innerHTML = almost.map(({ item, missingName }) => `
+                    <div onclick="openModal('${item.id}')" class="cursor-pointer p-2 rounded bg-paper border border-borderline hover:border-bronze flex items-center justify-between gap-2">
+                        <span class="font-medium text-ink truncate">${item.title}</span>
+                        <span class="text-muted shrink-0">缺：<strong class="text-bronze font-normal">${missingName}</strong></span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // ==================== 分类与搜索过滤 ====================
+        function renderCategoryTabs() {
+            const container = document.getElementById('categoryTabs');
+            container.innerHTML = CATEGORIES.map(cat => {
+                const isActive = state.selectedCategory === cat;
+                const count = cat === '全部' 
+                    ? ENCYCLOPEDIA_DATA.length 
+                    : ENCYCLOPEDIA_DATA.filter(i => i.category === cat).length;
+
+                return `
+                    <button 
+                        onclick="selectCategory('${cat}')"
+                        class="px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap transition-colors ${
+                            isActive 
+                            ? 'bg-bronze text-paper font-medium' 
+                            : 'text-muted hover:text-ink hover:bg-parchment'
+                        }"
+                    >
+                        ${cat} (${count})
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectCategory(cat) {
+            state.selectedCategory = cat;
+            renderCategoryTabs();
+            renderCards();
+        }
+
+        function handleSearch() {
+            const input = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('clearSearchBtn');
+            state.searchQuery = input.value.trim().toLowerCase();
+            clearBtn.classList.toggle('hidden', state.searchQuery.length === 0);
+            renderCards();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            state.searchQuery = '';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            renderCards();
+        }
+
+        function resetFilters() {
+            state.selectedCategory = '全部';
+            clearSearch();
+            renderCategoryTabs();
+            renderCards();
+        }
+
+        // ==================== 渲染词条卡片网格 ====================
+        function renderCards() {
+            const grid = document.getElementById('cardsGrid');
+            const emptyState = document.getElementById('emptyState');
+            const resultCount = document.getElementById('resultCount');
+
+            const filtered = ENCYCLOPEDIA_DATA.filter(item => {
+                const matchCat = state.selectedCategory === '全部' || item.category === state.selectedCategory;
+                if (!matchCat) return false;
+                if (!state.searchQuery) return true;
+
+                const q = state.searchQuery;
+                const inTitle = item.title.toLowerCase().includes(q);
+                const inPrinciple = item.principle.toLowerCase().includes(q) || item.ratioSummary.toLowerCase().includes(q);
+                const inMat = item.materials.some(m => m.name.toLowerCase().includes(q) || m.ratio.toLowerCase().includes(q));
+                return inTitle || inPrinciple || inMat;
+            });
+
+            resultCount.textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            grid.innerHTML = filtered.map(item => {
+                const totalMat = item.materials.length;
+                const ownedMat = item.materials.filter(m => state.ownedMaterials.has(m.name)).length;
+
+                return `
+                    <article onclick="openModal('${item.id}')" class="card-item cursor-pointer bg-paper rounded-xl border border-borderline p-5 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between text-xs text-muted mb-1.5">
+                                <span>${item.category}</span>
+                                <span>已备原料 ${ownedMat}/${totalMat}</span>
+                            </div>
+
+                            <h2 class="font-serif text-base sm:text-lg font-bold text-ink leading-snug mb-2">
+                                ${item.title}
+                            </h2>
+
+                            <div class="p-2.5 rounded-lg bg-parchment border border-borderline text-xs text-ink/90 leading-relaxed mb-3">
+                                <span class="text-bronze font-medium">核心配比：</span>${item.ratioSummary}
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-borderline flex items-center justify-between text-xs">
+                            <span class="text-muted truncate pr-2">
+                                原料：${item.materials.map(m => m.name).join('、')}
+                            </span>
+                            <span class="text-bronze font-medium shrink-0">详情 →</span>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // ==================== 详情模态框渲染 ====================
+        function openModal(id) {
+            const item = ENCYCLOPEDIA_DATA.find(d => d.id === id);
+            if (!item) return;
+
+            state.activeModalId = id;
+            document.getElementById('modalCategory').textContent = item.category;
+            document.getElementById('modalTitle').textContent = item.title;
+            document.getElementById('modalPrinciple').textContent = item.principle;
+            document.getElementById('modalSafety').textContent = item.safety;
+
+            renderModalRatioTable(item);
+
+            // 渲染步骤
+            document.getElementById('modalStepsList').innerHTML = item.steps.map(s => `
+                <div class="p-3 rounded-lg bg-paper border border-borderline">
+                    <div class="font-semibold text-xs sm:text-sm text-ink mb-1">${s.step}</div>
+                    <p class="text-xs text-muted leading-relaxed">${s.detail}</p>
+                </div>
+            `).join('');
+
+            // 渲染传统与改良对比表
+            document.getElementById('modalCompareTableBody').innerHTML = item.comparison.map(c => `
+                <tr>
+                    <td class="py-2.5 px-3 font-medium text-ink bg-parchment/40 w-1/4">${c.metric}</td>
+                    <td class="py-2.5 px-3 text-muted w-3/8">${c.trad}</td>
+                    <td class="py-2.5 px-3 text-ink w-3/8">${c.improved}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('detailModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function renderModalRatioTable(item) {
+            const ownedCount = item.materials.filter(m => state.ownedMaterials.has(m.name)).length;
+            document.getElementById('modalMatProgress').textContent = `${ownedCount}/${item.materials.length}`;
+
+            document.getElementById('modalRatioTableBody').innerHTML = item.materials.map(m => {
+                const isOwned = state.ownedMaterials.has(m.name);
+                return `
+                    <tr onclick="toggleMaterial('${m.name}')" class="cursor-pointer hover:bg-parchment/70 transition-colors ${isOwned ? 'bg-bronzelight/50' : ''}">
+                        <td class="py-2.5 px-3 text-center font-bold ${isOwned ? 'text-bronze' : 'text-muted'}">
+                            ${isOwned ? '[✓]' : '[ ]'}
+                        </td>
+                        <td class="py-2.5 px-3 font-semibold text-ink whitespace-nowrap">${m.name}</td>
+                        <td class="py-2.5 px-3 text-bronze font-medium">${m.ratio}</td>
+                        <td class="py-2.5 px-3 text-muted leading-relaxed">${m.source}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            state.activeModalId = null;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && state.activeModalId) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
